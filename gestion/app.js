@@ -877,7 +877,7 @@ function vMenu() {
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.3</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.4</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
   q('#fpin').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (!/^\d{4,8}$/.test(d.a)) return toast('Le PIN doit faire 4 à 8 chiffres'); if (d.a !== d.b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(d.a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
@@ -943,7 +943,7 @@ window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault()
 window.addEventListener('hashchange', route);
 window.addEventListener('online', function () { DB.flush().then(function (nb) { if (nb) toast(nb + ' changement(s) envoyé(s) ✓'); route(); }); });
 window.addEventListener('offline', route);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
 
 (async function start() {
   DB.init();
