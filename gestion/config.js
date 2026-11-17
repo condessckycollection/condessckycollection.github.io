@@ -1,6 +1,5 @@
-// Adresse et clé publique du projet Supabase (remplies à l'installation).
-// Laisser vide = mode démo : les données restent seulement dans ce téléphone.
+// Adresse et clé publique du projet Supabase (la clé publique peut être visible : la sécurité est assurée par les règles de la base).
 window.CONFIG = {
-  supabaseUrl: '',
-  supabaseKey: ''
+  supabaseUrl: 'https://worrjkhguuuzjnvsnjjm.supabase.co',
+  supabaseKey: 'sb_publishable_FJSGc-9JMhWWxwrO3paipA_EPvwA90Y'
 };
