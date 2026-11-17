@@ -482,6 +482,8 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
 .hero-trust{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:15px;font-weight:600;color:var(--navy)}
 .fam .tile-sub{font-weight:600}
 
+@font-face { font-family: "Gibson"; src: url("gibson-bold.woff") format("woff"); font-weight: 700; font-display: swap; }
+#overlay.overlay-name { font-family: "Gibson", var(--sans); font-weight: 700; transform: translateX(-50%); font-size: clamp(2rem, 6.5vw, 3.6rem); letter-spacing: .01em; }
 </style>
 </head>
 <body>
@@ -991,8 +993,8 @@ window.ENTREPRISE = {
     if (o.name) {
       var nb = t.nameBox || { x: a.x + a.w / 2, y: a.y + a.h * .84, w: a.w * .92, rot: -0.06 };
       var fs = Math.min(nb.w * .3, 96);
-      c.save(); c.font = fs + 'px "Great Vibes", "Brush Script MT", cursive'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      while (c.measureText(o.name).width > nb.w && fs > 20) { fs -= 4; c.font = fs + 'px "Great Vibes", "Brush Script MT", cursive'; }
+      c.save(); c.font = '700 ' + fs + 'px "Gibson", "Montserrat", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      while (c.measureText(o.name).width > nb.w && fs > 20) { fs -= 4; c.font = '700 ' + fs + 'px "Gibson", "Montserrat", sans-serif'; }
       c.translate(nb.x, nb.y); c.rotate(nb.rot || 0);
       c.shadowColor = o.nameShadow || 'rgba(0,0,0,.55)'; c.shadowBlur = 10; c.shadowOffsetY = 2;
       c.lineJoin = 'round'; c.lineWidth = Math.max(2, fs / (nb.strong ? 9 : 18)); c.strokeStyle = o.nameShadow && o.nameShadow.indexOf('255') > 0 ? 'rgba(255,255,255,.85)' : 'rgba(10,30,60,.55)'; c.strokeText(o.name, 0, 0);
@@ -1384,7 +1386,7 @@ window.ENTREPRISE = {
       });
       ['pointerup', 'pointercancel'].forEach(function (t) { CV.addEventListener(t, function (e) { delete pts[e.pointerId]; last = null; }); });
       CV.addEventListener('wheel', function (e) { if (!AP.raw) return; e.preventDefault(); AP.zoom = Math.max(1, Math.min(3, AP.zoom * (e.deltaY < 0 ? 1.06 : .94))); $('#ap-zoom').value = AP.zoom; apDraw(); }, { passive: false });
-      try { if (document.fonts && document.fonts.load) document.fonts.load('60px "Great Vibes"').then(function () { if (AP.view === 'moi') apDraw(); }); } catch (e) {}
+      try { if (document.fonts && document.fonts.load) document.fonts.load('700 60px "Gibson"').then(function () { if (AP.view === 'moi') apDraw(); }); } catch (e) {}
       var eb = $('#ap-enh');
       if (eb) eb.addEventListener('click', function () {
         if (!AP.orig) return; AP.enh = !AP.enh;
