@@ -475,6 +475,7 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
 .fam .tile-sub{font-weight:600}
 
 </style>
+<script>window.CC_DB = { url: "https://worrjkhguuuzjnvsnjjm.supabase.co", key: "sb_publishable_FJSGc-9JMhWWxwrO3paipA_EPvwA90Y" };</script>
 </head>
 <body>
 <a class="sr" href="#main">Aller au contenu</a>
@@ -1278,6 +1279,16 @@ window.ENTREPRISE = {
         p.fixe || p.sansPhoto ? '' : 'J’envoie ma photo juste après ce message. (Je l’envoie en « Document » pour garder la qualité.)'
       ].filter(function (l) { return l !== ''; }).map(function (l) { return l === '|' ? '' : l; });
       var link = wa(lines.join('\n'));
+      try { var DBC = window.CC_DB || {}; if (DBC.url && DBC.key) {
+        var telc = $('#o-phone').value.replace(/\D/g, ''); if (telc.length === 9) telc = '224' + telc;
+        var row = { numero: num, client_nom: $('#o-name').value.trim(), client_tel: telc, quartier: $('#o-quartier').value.trim(),
+          ville: s.z === 'conakry' ? 'Conakry' : $('#o-city').value.trim(), source: 'site', statut: 'nouvelle', urgent: !!s.urg,
+          date_livraison: $('#o-date').value || null,
+          articles: [{ produit_id: null, nom: p.nom + (opt ? ' – ' + opt : ''), qte: s.q, prix: p.surDemande ? 0 : s.unit, perso: $('#o-txt').value.trim() }],
+          sous_total: p.surDemande ? 0 : s.unit * s.q, supplement_urgent: s.urg ? CC.urgent : 0, livraison: s.z === 'conakry' ? s.liv : 0,
+          total: p.surDemande ? 0 : s.total, details: lines.join('\n') };
+        fetch(DBC.url + '/rest/v1/commandes', { method: 'POST', keepalive: true, headers: { apikey: DBC.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row) }).catch(function () {});
+      } } catch (e3) {}
       try { window.open(link, '_blank', 'noopener'); } catch (e2) {}
       fill('#done-num', num);
       $('#done-wa').href = link;
