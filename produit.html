@@ -485,6 +485,7 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
 @font-face { font-family: "Gibson"; src: url("gibson-bold.woff") format("woff"); font-weight: 700; font-display: swap; }
 #overlay.overlay-name { font-family: "Gibson", var(--sans); font-weight: 700; transform: translateX(-50%); font-size: clamp(2rem, 6.5vw, 3.6rem); letter-spacing: .01em; }
 </style>
+<script>window.CC_DB = { url: "https://worrjkhguuuzjnvsnjjm.supabase.co", key: "sb_publishable_FJSGc-9JMhWWxwrO3paipA_EPvwA90Y" };</script>
 </head>
 <body>
 <a class="sr" href="#main">Aller au contenu</a>
@@ -522,14 +523,12 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
         <span class="note" id="ap-cutstate" hidden></span>
         <button type="button" class="btn btn-line btn-block" id="ap-bg" hidden>Remettre le fond de la photo</button>
         <button type="button" class="btn btn-line btn-block" id="ap-enh" aria-pressed="true" hidden>✨ Photo améliorée · voir l’originale</button>
-        <a class="btn btn-wa btn-block btn-big" id="ap-order" href="#" target="_blank" rel="noopener">✅ Ce rendu me plaît : commander</a>
+        <button type="button" class="btn btn-orange btn-block" id="ap-next">✅ C’est bien placé : continuer ↓</button>
         <span class="muted" style="font-size:14px" id="ap-help">☝️ Glissez la photo avec le doigt pour bien la placer. Tapez le prénom plus bas : il s’écrit sur le produit.</span>
         <label class="field-label" for="ap-zoom">Taille de la photo</label>
         <input type="range" id="ap-zoom" min="1" max="3" step="0.01" value="1">
         <div class="ap-btns"><label class="btn btn-line">Changer de photo<input type="file" accept="image/*" class="sr ap-file"></label><button type="button" class="btn btn-line" id="ap-remove">Retirer</button></div>
-        <button type="button" class="btn btn-wa btn-block" id="ap-sendphoto" hidden>Envoyer ma photo améliorée sur WhatsApp</button>
-        <button type="button" class="btn btn-line btn-block" id="ap-share" hidden>Envoyer cet aperçu sur WhatsApp</button>
-        <span class="muted" style="font-size:12px">Aperçu indicatif. Votre photo reste sur votre téléphone. Le rendu final vous est envoyé sur WhatsApp avant la fabrication.</span>
+        <span class="muted" style="font-size:12px">Aperçu indicatif. Votre photo part avec votre commande quand vous touchez « Commander sur WhatsApp ». Le rendu final vous est envoyé avant la fabrication.</span>
       </div>
     </div>
     <div class="pinfo">
@@ -560,8 +559,11 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
       <div class="field"><span class="field-label">Quantité</span>
         <div class="qty"><button type="button" data-q="-1" aria-label="Moins">−</button><output id="qty" aria-live="polite">1</output><button type="button" data-q="1" aria-label="Plus">+</button></div>
       </div>
-      <div class="sum-lines" style="border-top:1px solid var(--line)"><div class="sum-total" style="border:none;padding:0"><span>Total</span><span id="ptotal"></span></div><span class="muted" style="font-size:13px" id="ptotal-note">Livraison en plus. Votre photo s’envoie sur WhatsApp.</span></div>
+      <div class="sum-lines" style="border-top:1px solid var(--line)"><div class="sum-total" style="border:none;padding:0"><span>Total</span><span id="ptotal"></span></div><span class="muted" style="font-size:13px" id="ptotal-note">Livraison en plus. Votre photo part avec la commande.</span></div>
       <div class="field" id="pquartier-field"><label class="field-label" for="pquartier">Votre quartier <span>(pour la livraison)</span></label><input class="input" id="pquartier" placeholder="Ex. Kipé, Lambanyi, Matoto… ou votre ville" autocomplete="off"><span class="err" id="pquartier-err" hidden>Indiquez votre quartier : le livreur en a besoin.</span></div>
+      <div class="two" id="pclient"><div class="field"><label class="field-label" for="pnom">Votre nom</label><input class="input" id="pnom" autocomplete="name" placeholder="Ex. Mariama Diallo"><span class="err" id="pnom-err" hidden>Indiquez votre nom.</span></div>
+        <div class="field"><label class="field-label" for="ptel">Votre numéro WhatsApp</label><input class="input" id="ptel" type="tel" inputmode="tel" autocomplete="tel" placeholder="6XX XX XX XX"><span class="err" id="ptel-err" hidden>Indiquez un numéro joignable.</span></div></div>
+      <div class="note blue" id="pdone" hidden></div>
       <div class="pactions">
         <a class="btn btn-wa btn-block btn-big" id="wa-product" href="#" target="_blank" rel="noopener"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.5c.3 2 1.8 3.8 4 4.5l1-1.3 1.8.7c-.2 1.2-1.1 1.8-2.2 1.6-3-.6-5.5-3.1-6-6.1-.2-1.1.5-2 1.6-2.2l.7 1.8z"/></svg> Commander sur WhatsApp</a>
         <span class="muted" style="font-size:13px;text-align:center">Votre commande s’écrit toute seule. Vous préférez un formulaire ? <a id="order" href="commande.html">Cliquez ici</a></span>
@@ -671,7 +673,7 @@ window.PRODUITS = [
     // Pas de prénom sur la coque : après le choix de la marque, le client écrit le modèle exact
     champ: { label: 'Modèle exact de votre téléphone', placeholder: 'Ex. iPhone 13 Pro Max, Samsung A15, Tecno Spark 20', message: 'modèle',
       parOption: { 'iPhone': 'Ex. iPhone 13 Pro Max, iPhone 17 Pro Max', 'Samsung': 'Ex. Samsung A15, Galaxy S24', 'Tecno': 'Ex. Tecno Spark 20, Camon 30' } },
-    details: 'Coque rigide avec contour souple noir. Seulement votre photo, pas de prénom. Choisissez la marque, écrivez le modèle exact de votre téléphone, puis envoyez la photo sur WhatsApp.',
+    details: 'Coque rigide avec contour souple noir. Seulement votre photo, pas de prénom. Choisissez la marque, écrivez le modèle exact de votre téléphone : votre photo part avec la commande.',
     occasions: ['anniversaire', 'saint-valentin'] },
 
   { key: 'pochette', apercu: 'pochette', nom: 'Coque carnet iPhone', court: 'Coque carnet', cat: 'Coques', prix: 120000,
@@ -1183,7 +1185,7 @@ window.ENTREPRISE = {
         (optName() ? ' (' + P.option.label.charAt(0).toLowerCase() + P.option.label.slice(1) + ' : ' + optName() + ')' : '') + (opt2Name() ? ' (' + P.option2.label.charAt(0).toLowerCase() + P.option2.label.slice(1) + ' : ' + opt2Name() + ')' : '') + (P.fixe && !P.option ? ' (modèle : photo n° ' + (Math.min(S.img, P.photos.length - 1) + 1) + ' du site)' : '') + (P.livraisonOfferte ? ', pose et livraison offertes' : '') +
         (S.txt && !P.fixe && !P.sansNom ? (P.champ ? ', ' + P.champ.message + ' : ' + S.txt : (P.nomMax ? ', prénom « ' : ', texte « ') + S.txt + ' »') : '') + (S.urgent ? ', en urgence 24 h' : '') + (P.surDemande ? '. Pouvez-vous m’indiquer le prix ?' : '. Prix affiché : ' + fmt(total()) + '.') +
         (Q() ? ' Livraison : ' + Q() + '.' : '') +
-        (AP.raw && apOK() ? ' J’ai vu l’aperçu avec ma photo sur le site, je vous envoie la photo juste après.' : '');
+        '';
     }
     function render() {
       fill('#pswitch', PRODUITS.map(function (x) { return '<a href="produit.html#' + x.key + '" aria-current="' + (x.key === P.key) + '"><img src="' + img(x.carte) + '" alt="" loading="lazy">' + esc(x.court) + '</a>'; }).join(''));
@@ -1221,7 +1223,7 @@ window.ENTREPRISE = {
       $('#ptxt-field').hidden = !!P.fixe || !!P.sansNom || !!(P.champ && P.champ.parOption && S.opt < 0); $('#pperso-wrap').hidden = !!P.fixe;
       var pm = $('.pictos.mini'); if (pm) pm.hidden = !!P.fixe;
       fill('#ap-help', P.champ ? '☝️ Glissez la photo avec le doigt pour bien la placer.' : '☝️ Glissez la photo avec le doigt pour bien la placer. Tapez le prénom plus bas : il s’écrit sur le produit.');
-      fill('#ptotal-note', P.fixe ? (P.fixeNote || 'Livraison en plus. Modèle vendu tel quel, choisissez seulement la couleur.') : P.sansPhoto ? 'Livraison en plus. Pas de photo : seulement le prénom.' : 'Livraison en plus. Votre photo s’envoie sur WhatsApp.');
+      fill('#ptotal-note', P.fixe ? (P.fixeNote || 'Livraison en plus. Modèle vendu tel quel, choisissez seulement la couleur.') : P.sansPhoto ? 'Livraison en plus. Pas de photo : seulement le prénom.' : 'Livraison en plus. Votre photo part avec la commande.');
       var tip = $('#photo-tips'); if (tip) tip.hidden = !!P.fixe || !!P.sansPhoto;
       var pc = $('#pconcept'); if (pc) { pc.hidden = !P.conception; if (P.conception) pc.href = wa('Bonjour Condesscky Collection, j’ai déjà ma conception pour : ' + P.nom + '. Je vous l’envoie (PDF ou image) juste après ce message.'); }
       fill('#pperso', P.persoTxt ? esc(P.persoTxt) : P.sansPhoto ? 'Indiquez seulement le prénom à écrire' + (P.nomMax ? ' (' + P.nomMax + ' lettres maximum)' : '') + '. Pas de photo sur ce produit. Nous vous envoyons le rendu sur WhatsApp avant la fabrication.' : P.sansNom ? 'Seulement votre photo, pas de prénom. Envoyez une photo nette sur WhatsApp : nous faisons la conception, nous vous l’envoyons pour validation, et nous lançons l’impression dès votre accord.' : P.champ ? 'Pas de prénom : seulement votre photo. Choisissez la marque, écrivez le modèle exact de votre téléphone, puis envoyez sur WhatsApp la photo à mettre dessus. Nous vous montrons le rendu avant la fabrication.' : PERSO_TXT);
@@ -1249,7 +1251,6 @@ window.ENTREPRISE = {
       fill('#ptotal', P.surDemande ? 'Sur demande' : fmt(total()));
       if (P.prixOptions) fill('#pprice', S.opt >= 0 ? fmt(unitPrice(P, S.opt)) : priceLabel(P));
       $('#wa-product').href = wa(message());
-      var apo = $('#ap-order'); if (apo) apo.href = $('#wa-product').href;
     }
     document.addEventListener('click', function (e) {
       var t = e.target.closest('[data-opt],[data-opt2],[data-tcol],[data-img],.gnav,[data-q]'); if (!t) return;
@@ -1265,14 +1266,64 @@ window.ENTREPRISE = {
     if (pq) {
       try { pq.value = localStorage.getItem('cc_quartier') || ''; } catch (e) {}
       pq.addEventListener('input', function () { try { localStorage.setItem('cc_quartier', pq.value.trim()); } catch (e) {} if (pq.value.trim()) { $('#pquartier-err').hidden = true; pq.setAttribute('aria-invalid', 'false'); } live(); });
-      ['#wa-product', '#ap-order'].forEach(function (id) {
-        var b = $(id); if (!b) return;
-        b.addEventListener('click', function (e) {
-          if (Q()) return;
-          e.preventDefault(); $('#pquartier-err').hidden = false; pq.setAttribute('aria-invalid', 'true');
-          pq.scrollIntoView({ block: 'center', behavior: 'smooth' }); pq.focus({ preventScroll: true });
-        });
+      ['#pnom', '#ptel'].forEach(function (id) { var el = $(id); try { el.value = localStorage.getItem('cc_' + id.slice(1)) || ''; } catch (e) {} el.addEventListener('input', function () { try { localStorage.setItem('cc_' + id.slice(1), el.value.trim()); } catch (e) {} $(id + '-err').hidden = true; }); });
+      $('#ap-next').addEventListener('click', function () { var t = !$('#popt').hidden ? $('#popt') : !$('#ptxt-field').hidden ? $('#ptxt-field') : pq; t.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+      $('#wa-product').addEventListener('click', function (e) {
+        e.preventDefault();
+        var bad = null;
+        function err(el, id) { $(id).hidden = false; el.setAttribute('aria-invalid', 'true'); if (!bad) bad = el; }
+        if (P.option && S.opt < 0) { bad = $('#popt-select') || $('#popt'); fill('#popt-val', ': à choisir ⚠️'); }
+        if (P.champ && !S.txt.trim() && !bad) { bad = $('#ptxt'); $('#ptxt').setAttribute('aria-invalid', 'true'); $('#ptxt').placeholder = 'À remplir : ' + champPh(); }
+        if (!Q()) err(pq, '#pquartier-err');
+        var nm = $('#pnom').value.trim(), tl = $('#ptel').value.replace(/\D/g, '');
+        if (!nm) err($('#pnom'), '#pnom-err');
+        if (tl.length < 8) err($('#ptel'), '#ptel-err');
+        if (bad) { bad.scrollIntoView({ block: 'center', behavior: 'smooth' }); try { bad.focus({ preventScroll: true }); } catch (e2) {} return; }
+        commanderSite(nm, tl);
       });
+    }
+    function toBlob(cv, q) { return new Promise(function (ok) { try { cv.toBlob(function (b) { ok(b); }, 'image/jpeg', q); } catch (e) { ok(null); } }); }
+    async function envoiPhoto(data, num, suffixe) {
+      var DBC = window.CC_DB || {}; if (!data || !DBC.url) return null;
+      var b = data, type = data.type;
+      if (!(data instanceof Blob) || !/^image\/(jpeg|png|webp|heic|heif)$/.test(type || '') || data.size > 14 * 1024 * 1024) { b = await toBlob(data instanceof Blob ? AP.orig : data, .92); type = 'image/jpeg'; }
+      if (!b) return null;
+      var ext = { 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' }[type] || 'jpg';
+      var rnd = Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+      var name = num + '-' + suffixe + '-' + rnd + '.' + ext;
+      var r = await fetch(DBC.url + '/storage/v1/object/site-photos/' + name, { method: 'POST', headers: { apikey: DBC.key, 'Content-Type': type }, body: b });
+      return r.ok ? DBC.url + '/storage/v1/object/public/site-photos/' + name : null;
+    }
+    async function commanderSite(nm, tl) {
+      var win = null; try { win = window.open('', '_blank'); } catch (e) {}
+      var btn = $('#wa-product'), lab = btn.innerHTML; btn.style.pointerEvents = 'none'; btn.textContent = AP.raw ? 'Envoi de votre photo…' : 'Un instant…';
+      var d = new Date(), num = 'CC-' + String(d.getFullYear()).slice(2) + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '-' + Math.floor(1000 + Math.random() * 9000);
+      var telc = tl.length === 9 ? '224' + tl : tl, code4 = tl.slice(-4);
+      var suiviUrl = 'https://condessckycollection.github.io/suivi.html?n=' + encodeURIComponent(num) + '&c=' + code4;
+      var photoUrl = null, apercuUrl = null;
+      if (AP.raw && apOK()) {
+        try { photoUrl = await envoiPhoto(AP.file || AP.orig, num, 'photo'); } catch (e) {}
+        try { apercuUrl = await envoiPhoto(CV, num, 'apercu'); } catch (e) {}
+      }
+      var lines = ['Commande n° ' + num, message(), '', 'Nom : ' + nm, 'Téléphone : ' + $('#ptel').value.trim()];
+      if (photoUrl) lines.push('Ma photo (originale) : ' + photoUrl);
+      if (apercuUrl) lines.push('Mon aperçu sur le produit : ' + apercuUrl);
+      if (AP.raw && !photoUrl) lines.push('J’envoie ma photo juste après ce message.');
+      lines.push('', 'Suivre ma commande : ' + suiviUrl);
+      var link = wa(lines.join('\n'));
+      try { var DBC = window.CC_DB || {}; if (DBC.url) {
+        var opts = [optName(), opt2Name()].filter(Boolean).join(' – ');
+        var row = { numero: num, client_nom: nm, client_tel: telc, quartier: Q(), source: 'site', statut: 'nouvelle', urgent: !!S.urgent,
+          articles: [{ produit_id: null, nom: P.nom + (opts ? ' – ' + opts : ''), qte: S.qty, prix: P.surDemande ? 0 : unitPrice(P, S.opt), perso: S.txt || '' }],
+          sous_total: P.surDemande ? 0 : unitPrice(P, S.opt) * S.qty, supplement_urgent: S.urgent ? CC.urgent : 0, livraison: 0, total: P.surDemande ? 0 : total(), details: lines.join('\n'),
+          photos: [photoUrl ? { path: photoUrl, type: 'Photo du client (originale)', date: d.toISOString() } : null, apercuUrl ? { path: apercuUrl, type: 'Aperçu du client', date: d.toISOString() } : null].filter(Boolean) };
+        await fetch(DBC.url + '/rest/v1/commandes', { method: 'POST', keepalive: true, headers: { apikey: DBC.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row) }).catch(function () {});
+      } } catch (e3) {}
+      set('cc_orders', [{ num: num, code: code4, date: d.toISOString(), produit: P.nom, total: total() }].concat(get('cc_orders') || []).slice(0, 10));
+      btn.innerHTML = lab; btn.style.pointerEvents = '';
+      var dn = $('#pdone'); dn.hidden = false;
+      dn.innerHTML = '<strong>Merci ! Commande n° ' + esc(num) + '</strong><br>Si WhatsApp ne s’est pas ouvert, <a href="' + link + '" target="_blank" rel="noopener">touchez ici pour envoyer la commande</a>.<br><a href="' + suiviUrl + '">Suivre ma commande</a>';
+      try { if (win) win.location.href = link; else window.location.href = link; } catch (e4) { window.location.href = link; }
     }
     $('#ptxt').addEventListener('input', function (e) { S.txt = e.target.value.slice(0, P.champ ? 40 : (P.nomMax || 18)); live(); });
     var PERSO_TXT = $('#pperso') ? $('#pperso').textContent : '';
@@ -1314,7 +1365,7 @@ window.ENTREPRISE = {
         var m = 1600, sc = Math.min(1, m / Math.max(im.width, im.height));
         var off = document.createElement('canvas'); off.width = Math.round(im.width * sc); off.height = Math.round(im.height * sc);
         off.getContext('2d').drawImage(im, 0, 0, off.width, off.height); URL.revokeObjectURL(url);
-        AP.orig = off; AP.better = enhance(off); AP.enh = true; apEnhUI();
+        AP.file = file; AP.orig = off; AP.better = enhance(off); AP.enh = true; apEnhUI();
         off = AP.better;
         AP.img = AP.raw = off; AP.cut = null; AP.zoom = 1; AP.dx = 0; AP.dy = 0; $('#ap-zoom').value = 1;
         apView('moi'); apCut();
@@ -1367,7 +1418,7 @@ window.ENTREPRISE = {
       document.addEventListener('change', function (e) { if (e.target.classList && e.target.classList.contains('ap-file')) { apLoad(e.target.files && e.target.files[0]); e.target.value = ''; } });
       $('#gtabs').addEventListener('click', function (e) { var b = e.target.closest('[data-view]'); if (b) apView(b.getAttribute('data-view')); });
       $('#ap-zoom').addEventListener('input', function (e) { AP.zoom = +e.target.value; apDraw(); });
-      $('#ap-remove').addEventListener('click', function () { AP.img = AP.raw = AP.cut = null; AP.cutState = ''; apView('photos'); apCutUI(); });
+      $('#ap-remove').addEventListener('click', function () { AP.img = AP.raw = AP.cut = AP.file = null; AP.cutState = ''; apView('photos'); apCutUI(); });
       $('#ap-bg').addEventListener('click', function () { AP.useCut = !AP.useCut; AP.zoom = 1; AP.dx = 0; AP.dy = 0; $('#ap-zoom').value = 1; apCutUI(); apDraw(); });
       var pts = {}, last = null;
       function unit() { var r = CV.getBoundingClientRect(); return r.width ? CCApercu.W / r.width : 1; }
@@ -1395,8 +1446,7 @@ window.ENTREPRISE = {
       // Partager l'image de l'aperçu (téléphones qui le permettent)
       try {
         var test = new File([new Blob(['x'], { type: 'image/png' })], 'a.png', { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [test] })) {
-          $('#ap-share').hidden = false;
+        if (false) {
           $('#ap-share').addEventListener('click', function () {
             CV.toBlob(function (bl) {
               if (!bl) return;
@@ -1405,7 +1455,7 @@ window.ENTREPRISE = {
             }, 'image/jpeg', .9);
           });
           // Envoyer la photo améliorée elle-même (pour l'impression)
-          var sp = $('#ap-sendphoto');
+          var sp = null;
           if (sp) { sp.hidden = false; sp.addEventListener('click', function () {
             var src = AP.enh ? AP.better : AP.orig; if (!src) return;
             src.toBlob(function (bl) {

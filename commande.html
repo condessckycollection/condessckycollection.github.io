@@ -1256,9 +1256,10 @@ window.ENTREPRISE = {
     function compressPhoto(f) { return new Promise(function (ok, ko) { var im = new Image(); im.onload = function () { var m = 1600, w = im.naturalWidth, h = im.naturalHeight, r = Math.min(1, m / Math.max(w, h)); var cv = document.createElement('canvas'); cv.width = Math.round(w * r); cv.height = Math.round(h * r); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); cv.toBlob(function (b) { b ? ok(b) : ko(new Error('photo')); }, 'image/jpeg', .86); }; im.onerror = ko; im.src = URL.createObjectURL(f); }); }
     async function envoyerPhoto(f, num) {
       var DBC = window.CC_DB || {}; if (!DBC.url) return null;
-      var b = await compressPhoto(f), rnd = Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
-      var name = num + '-' + rnd + '.jpg';
-      var r = await fetch(DBC.url + '/storage/v1/object/site-photos/' + name, { method: 'POST', headers: { apikey: DBC.key, 'Content-Type': 'image/jpeg' }, body: b });
+      var orig = /^image\/(jpeg|png|webp|heic|heif)$/.test(f.type || '') && f.size <= 14 * 1024 * 1024;
+      var b = orig ? f : await compressPhoto(f), typ = orig ? f.type : 'image/jpeg', rnd = Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+      var name = num + '-photo-' + rnd + '.' + ({ 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' }[typ] || 'jpg');
+      var r = await fetch(DBC.url + '/storage/v1/object/site-photos/' + name, { method: 'POST', headers: { apikey: DBC.key, 'Content-Type': typ }, body: b });
       if (!r.ok) throw new Error('upload ' + r.status);
       return DBC.url + '/storage/v1/object/public/site-photos/' + name;
     }
@@ -1304,7 +1305,7 @@ window.ENTREPRISE = {
       var win = null; if (photoF) { try { win = window.open('', '_blank'); } catch (e4) {} var sb = $('#order-form button[type=submit]'); if (sb) { sb.disabled = true; sb.dataset.t = sb.innerHTML; sb.textContent = 'Envoi de votre photo…'; } }
       (photoF ? envoyerPhoto(photoF, num).catch(function () { return null; }) : Promise.resolve(null)).then(function (photoUrl) {
       var sb2 = $('#order-form button[type=submit]'); if (sb2 && sb2.dataset.t) { sb2.disabled = false; sb2.innerHTML = sb2.dataset.t; }
-      if (photoUrl) { var ix = lines.findIndex(function (l) { return l.indexOf('J’envoie ma photo') === 0; }); var pl = 'Ma photo : ' + photoUrl; if (ix >= 0) lines[ix] = pl; else lines.push('', pl); }
+      if (photoUrl) { var ix = lines.findIndex(function (l) { return l.indexOf('J’envoie ma photo') === 0; }); var pl = 'Ma photo (originale) : ' + photoUrl; if (ix >= 0) lines[ix] = pl; else lines.push('', pl); }
       lines.push('', 'Suivre ma commande : ' + suiviUrl);
       var link = wa(lines.join('\n'));
       try { var DBC = window.CC_DB || {}; if (DBC.url && DBC.key) {
