@@ -4,7 +4,7 @@
 var $app = document.getElementById('app');
 var LOGO = '../img/logo.png';
 var STATUTS = [
-  ['nouvelle', 'Nouvelle'], ['fabrication', 'En fabrication'], ['prete', 'Prête'],
+  ['nouvelle', 'Nouvelle'], ['confirmee', 'Confirmée'], ['fabrication', 'En fabrication'], ['prete', 'Prête'],
   ['livraison', 'En livraison'], ['livree', 'Livrée'], ['annulee', 'Annulée']
 ];
 var STL = {}; STATUTS.forEach(function (s) { STL[s[0]] = s[1]; });
@@ -42,6 +42,12 @@ function toast(msg) { var t = document.createElement('div'); t.className = 'toas
 function inPeriod(v, from, to) { var k = dkey(v); return k >= from && k <= to; }
 function lsGet(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function suiviLien(c) { var d = String(c.client_tel || '').replace(/\D/g, ''); return 'https://condessckycollection.github.io/suivi.html?n=' + encodeURIComponent(c.numero) + (d.length >= 4 ? '&c=' + d.slice(-4) : ''); }
+function msgStatut(c, st) {
+  var nom = first(c.client_nom), l = '\nSuivre ta commande : ' + suiviLien(c), reste = resteFor(c);
+  var M = { nouvelle: 'Bonjour ' + nom + ', nous avons bien reçu ta commande ' + c.numero + ' (' + title(c) + ').', confirmee: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est confirmée ✅ (' + title(c) + ').' + (n(c.total) ? '\nTotal : ' + fmt(c.total) + '.' : '') + ' Nous la préparons avec soin.', fabrication: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est en fabrication à l’atelier ✨', prete: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est prête ! 🎉' + (reste ? '\nReste à payer : ' + fmt(reste) + '.' : ''), livraison: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est en route 🚚' + (c.chauffeur_nom ? '\nChauffeur : ' + c.chauffeur_nom + (c.chauffeur_tel ? ' (' + c.chauffeur_tel + ')' : '') : ' Le livreur t’appelle avant d’arriver.'), livree: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est livrée. Merci pour ta confiance 🙏 Condesscky Collection', annulee: 'Bonjour ' + nom + ', ta commande ' + c.numero + ' a été annulée. Écris-moi si tu as une question.' };
+  return (M[st] || M.nouvelle) + (st === 'annulee' ? '' : l);
+}
 function first(s) { return String(s || '').split(' ')[0]; }
 
 /* ---------------- données ---------------- */
@@ -212,12 +218,12 @@ var DB = {
   },
   photoUrls: async function (paths) {
     if (!paths.length) return {};
-    var out = {}; var ext = paths.filter(function (p) { return p.indexOf('data:') === 0; }); ext.forEach(function (p) { out[p] = p; });
-    var st = paths.filter(function (p) { return p.indexOf('data:') !== 0; });
+    var out = {}; var ext = paths.filter(function (p) { return /^(data:|https?:)/.test(p); }); ext.forEach(function (p) { out[p] = p; });
+    var st = paths.filter(function (p) { return !/^(data:|https?:)/.test(p); });
     if (st.length && S.mode === 'sb' && navigator.onLine) { var r = await sb.storage.from('photos').createSignedUrls(st, 3600); (r.data || []).forEach(function (x) { if (x.signedUrl) out[x.path] = x.signedUrl; }); }
     return out;
   },
-  removePhoto: async function (path) { if (S.mode === 'sb' && path.indexOf('data:') !== 0) await sb.storage.from('photos').remove([path]); }
+  removePhoto: async function (path) { if (S.mode === 'sb' && !/^(data:|https?:)/.test(path)) await sb.storage.from('photos').remove([path]); }
 };
 function pushQ(it) { var q = queue(); q.push(it); lsSet(QK, q); }
 function applyLocal(it) {
@@ -307,6 +313,7 @@ function messagesWA(c) {
   var L = [
     ['Confirmer la commande', 'Bonjour ' + nom + ', merci pour ta commande chez Condesscky Collection ! 🙏\nCommande ' + c.numero + ' : ' + title(c) + '.\nTotal : ' + fmt(c.total) + (paye ? ' (déjà payé : ' + fmt(paye) + ')' : '') + '.\nSuis ta commande ici : ' + SITE + '/suivi.html'],
     ['En fabrication', 'Bonjour ' + nom + ', bonne nouvelle : ta commande ' + c.numero + ' est en fabrication à l’atelier. Je te préviens dès qu’elle est prête ✨'],
+    ['Lien de suivi', 'Bonjour ' + nom + ', voici le lien pour suivre ta commande ' + c.numero + ' à chaque étape :\n' + suiviLien(c)],
     ['Prête (photo)', 'Bonjour ' + nom + ', ta commande ' + c.numero + ' est prête ! Je t’envoie la photo juste après.' + (reste ? '\nReste à payer : ' + fmt(reste) + '.' : '')]
   ];
   if (interieur(c)) {
@@ -429,7 +436,7 @@ function vLivraisons() {
 /* ---- Commandes ---- */
 var filtreCmd = 'encours', rechCmd = '';
 function vCommandes() {
-  var fs = [['encours', 'En cours'], ['nouvelle', 'Nouvelles'], ['fabrication', 'Fabrication'], ['prete', 'Prêtes'], ['livraison', 'Livraison'], ['livree', 'Livrées'], ['devis', 'Devis'], ['annulee', 'Annulées'], ['toutes', 'Toutes']];
+  var fs = [['encours', 'En cours'], ['nouvelle', 'Nouvelles'], ['confirmee', 'Confirmées'], ['fabrication', 'Fabrication'], ['prete', 'Prêtes'], ['livraison', 'Livraison'], ['livree', 'Livrées'], ['devis', 'Devis'], ['annulee', 'Annulées'], ['toutes', 'Toutes']];
   var body = '<input id="r" type="search" placeholder="Chercher un nom, un numéro…" value="' + esc(rechCmd) + '">' +
     '<div class="chips">' + fs.map(function (f) { return '<button data-f="' + f[0] + '" class="' + (filtreCmd === f[0] ? 'on' : '') + '">' + f[1] + '</button>'; }).join('') + '</div>' +
     '<section class="card" id="lst">' + listeCmdHTML() + '</section>';
@@ -454,10 +461,12 @@ function vCommande(id) {
   var dv = isDevis(c), paid = paidFor(c.id), reste = resteFor(c);
   var pays = S.data.paiements.filter(function (p) { return p.commande_id === c.id; });
   var idx = STATUTS.map(function (s) { return s[0]; }).indexOf(c.statut);
-  var next = (!dv && idx >= 0 && idx < 4) ? STATUTS[idx + 1] : null;
+  var next = (!dv && idx >= 0 && idx < 5) ? STATUTS[idx + 1] : null;
   var tel = c.client_tel; var ph = c.photos || [];
-  var justPaid = S.justPaid === c.id; S.justPaid = null;
-  var body = (justPaid ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ Paiement enregistré</h2><p class="mut" style="margin:0 0 10px">Donne son reçu au client :</p><div class="grid2"><button class="btn sm or" id="recu2" style="width:100%">🧾 Reçu en image</button>' + (tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(tel, recuTexte(c)) + '">Reçu par WhatsApp</a>' : '') + '</div></section>' : '') +
+  var justPaid = S.justPaid === c.id; S.justPaid = null; var justSt = S.justSt === c.id; S.justSt = null;
+  var body = (justSt && tel ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Préviens le client : il reçoit le message avec le lien pour suivre sa commande.</p><a class="btn wa" target="_blank" rel="noopener" href="' + waLink(tel, msgStatut(c, c.statut)) + '">Prévenir ' + esc(first(c.client_nom)) + ' sur WhatsApp</a></section>' : '') +
+    (c.statut === 'nouvelle' && !dv && !justSt ? '<section class="card" style="border:2px solid var(--or, #F29A00)"><h2>Nouvelle commande</h2><p class="mut" style="margin:0 0 10px">Vérifie la commande puis confirme-la : le client pourra suivre chaque étape.</p><button class="btn navy" id="confirm">✓ Confirmer la commande</button></section>' : '') +
+    (justPaid ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ Paiement enregistré</h2><p class="mut" style="margin:0 0 10px">Donne son reçu au client :</p><div class="grid2"><button class="btn sm or" id="recu2" style="width:100%">🧾 Reçu en image</button>' + (tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(tel, recuTexte(c)) + '">Reçu par WhatsApp</a>' : '') + '</div></section>' : '') +
     '<section class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(c.numero) + '</b>' + chip(c) + '</div>' +
     '<div class="mut" style="margin-top:4px">' + dshort(c.created_at) + ' · ' + esc(SRC[c.source] || c.source) + (c.urgent ? ' · ⚡ Urgent' : '') + (c.date_livraison ? ' · pour le ' + dshort(c.date_livraison) : '') + '</div>' +
     (dv ? '<p class="mut" style="margin:10px 0 0">C’est un devis : il ne compte pas dans les ventes tant que le client n’a pas accepté.</p><button class="btn navy" id="accept" style="margin-top:10px">✓ Le client accepte : en faire une commande</button>' : '') +
@@ -484,7 +493,8 @@ function vCommande(id) {
     '<section class="card"><h2>Note de l’atelier</h2><form id="fn"><textarea name="details" placeholder="Couleur, prénom, police, photo reçue…">' + esc(c.details || '') + '</textarea><button class="btn sm" type="submit" style="width:100%">Enregistrer la note</button></form></section>' +
     (isPatron() ? '<button class="btn danger" id="del">Supprimer ' + (dv ? 'le devis' : 'la commande') + '</button>' : '');
   render(page({ title: dv ? 'Devis' : 'Commande', back: 1, body: body, nav: 'cmd' }));
-  async function setSt(st) { await act(function () { return DB.update('commandes', c.id, { statut: st }); }, 'Statut : ' + STL[st]); vCommande(id); }
+  async function setSt(st) { await act(function () { return DB.update('commandes', c.id, { statut: st }); }, 'Statut : ' + STL[st]); S.justSt = c.id; vCommande(id); }
+  if (q('#confirm')) q('#confirm').onclick = function () { setSt('confirmee'); };
   if (q('#next')) q('#next').onclick = function () { setSt(next[0]); };
   qa('[data-st]').forEach(function (b) { b.onclick = function () { setSt(b.dataset.st); }; });
   if (q('#accept')) q('#accept').onclick = async function () { await act(async function () { await DB.update('commandes', c.id, { type: 'commande', statut: 'nouvelle' }); await baisserStock(c.articles); }, 'Devis accepté : c’est une commande'); vCommande(id); };
@@ -662,7 +672,7 @@ function vVente() {
 /* ---- Tâches du jour ---- */
 function vTaches() {
   var t = today(); var dem = addDays(t, 1);
-  var afab = vraies().filter(function (c) { return ['nouvelle', 'fabrication'].indexOf(c.statut) >= 0; }).sort(function (a, b) { return (b.urgent - a.urgent) || String(a.date_livraison || '9').localeCompare(String(b.date_livraison || '9')); });
+  var afab = vraies().filter(function (c) { return ['nouvelle', 'confirmee', 'fabrication'].indexOf(c.statut) >= 0; }).sort(function (a, b) { return (b.urgent - a.urgent) || String(a.date_livraison || '9').localeCompare(String(b.date_livraison || '9')); });
   var aliv = vraies().filter(function (c) { return ['prete', 'livraison'].indexOf(c.statut) >= 0; });
   var perso = S.data.taches.filter(function (x) { return x.jour <= t && (!x.fait || x.jour === t); });
   function cr(c) { var late = c.date_livraison && c.date_livraison <= dem; return '<a class="row" href="#/commande/' + c.id + '"><span class="ico" style="background:' + (c.urgent || late ? '#FDE2E2' : '#DCE8F7') + '">' + (c.urgent ? '⚡' : '🛠️') + '</span><div class="grow"><span class="t">' + esc(title(c)) + '</span><span class="mut">' + esc(c.client_nom) + (c.date_livraison ? ' · pour le ' + dshort(c.date_livraison) : '') + '</span></div>' + chip(c) + '</a>'; }
@@ -863,7 +873,7 @@ function vMenu() {
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.1</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.2</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
   q('#fpin').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (!/^\d{4,8}$/.test(d.a)) return toast('Le PIN doit faire 4 à 8 chiffres'); if (d.a !== d.b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(d.a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
