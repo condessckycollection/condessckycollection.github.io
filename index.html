@@ -98,7 +98,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .mnav a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 12px 0; border-bottom: 1px solid var(--stone); min-height: 48px; display: flex; align-items: center; }
 .mnav a[aria-current="page"] { color: var(--navy); }
 .mnav .btn { margin-top: 14px; }
+@media (max-width: 1180px) {
+  .head-wa { display: none; }
+  .nav { gap: 0; }
+  .nav a { padding: 10px 7px; font-size: 13px; }
+}
 @media (max-width: 1080px) {
+  .brand img { height: 46px; }
+}
+@media (max-width: 860px) {
   .nav, .head-wa { display: none; }
   .burger { display: inline-flex; }
   .brand img { height: 46px; }

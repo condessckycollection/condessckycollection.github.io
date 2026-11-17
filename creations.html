@@ -107,7 +107,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .mnav a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 12px 0; border-bottom: 1px solid var(--stone); min-height: 48px; display: flex; align-items: center; }
 .mnav a[aria-current="page"] { color: var(--navy); }
 .mnav .btn { margin-top: 14px; }
+@media (max-width: 1180px) {
+  .head-wa { display: none; }
+  .nav { gap: 0; }
+  .nav a { padding: 10px 7px; font-size: 13px; }
+}
 @media (max-width: 1080px) {
+  .brand img { height: 46px; }
+}
+@media (max-width: 860px) {
   .nav, .head-wa { display: none; }
   .burger { display: inline-flex; }
   .brand img { height: 46px; }
@@ -318,6 +326,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .flow img { position: absolute; top: 8%; left: 16%; width: 68%; height: 84%; object-fit: cover; box-shadow: 0 14px 30px rgba(9, 40, 77, .22); transition: transform .9s cubic-bezier(.25, .8, .25, 1), opacity .9s ease; will-change: transform; }
 .flow .play { position: absolute; z-index: 5; right: 12px; bottom: 12px; background: var(--navy); color: #FFFFFF; font-size: 12px; font-weight: 700; padding: 6px 10px; display: flex; gap: 6px; align-items: center; }
 .flow .hint { position: absolute; z-index: 5; left: 12px; bottom: 12px; background: rgba(255, 255, 255, .92); color: var(--navy); font-size: 12px; font-weight: 600; padding: 6px 10px; }
+.album-cta { margin-top: 10px; width: 100%; min-height: 44px; font-size: 14px; }
 .album-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .album-title { font-weight: 800; font-size: 1.05rem; }
 .album-count { font-size: 13px; color: var(--muted); flex-shrink: 0; }
@@ -1816,6 +1825,8 @@ window.AVANT_APRES = [
   /* ---------- Créations ---------- */
   if (page === 'creations') {
     var AL = window.ALBUMS || [], pos = AL.map(function () { return 0; });
+    var CIBLE = { 'Gourdes personnalisées': 'gourde', 'Gourdes Diamant': 'diamant', 'Chaînes et bijoux personnalisés': 'collier', 'Coques personnalisées': 'coque', 'Coque carnet iPhone': 'pochette', 'Autocollants téléphone': 'autotel', 'Autocollants PC': 'autopc', 'Photo cadre': 'cadre', 'Textile et impression': 'textile', 'Chargeur de luxe': 'chargeur', 'Tasses personnalisées': 'tasse', 'Peluches personnalisées': 'peluche' };
+    function cta(a, cls) { var k = CIBLE[a.titre]; return k && byKey(k) ? '<a class="btn btn-orange ' + cls + '" href="produit.html#' + k + '">Commander ce modèle</a>' : '<a class="btn btn-orange ' + cls + '" href="entreprises.html">Demander un devis</a>'; }
     function stack(a, i) {
       var n = a.photos.length, act = pos[i];
       return a.photos.map(function (p, j) {
@@ -1833,7 +1844,7 @@ window.AVANT_APRES = [
         a.photos.map(function (p, j) { return '<img src="' + img(p[0]) + '" alt="" loading="' + (j < 3 ? 'eager' : 'lazy') + '" style="' + st2[j] + '">'; }).join('') +
         (a.photos.length > 1 ? '<span class="hint">Glissez pour feuilleter</span>' : '') +
         (a.photos.some(function (p) { return p[2]; }) ? '<span class="play">' + ICON.play + 'Vidéo</span>' : '') +
-        '</button><div class="album-meta"><h3 class="album-title">' + esc(a.titre) + '</h3><span class="album-count">' + counts(a) + '</span></div>' +
+        '</button><div class="album-meta"><h3 class="album-title">' + esc(a.titre) + '</h3><span class="album-count">' + counts(a) + '</span></div>' + cta(a, 'album-cta') +
         (a.photos.length > 1 ? '<div class="dots" aria-hidden="true">' + a.photos.map(function (p, j) { return '<i' + (j === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' : '') + '</article>';
     }).join(''));
     function restack(i) {
@@ -1865,7 +1876,7 @@ window.AVANT_APRES = [
       m.innerHTML = ph[2]
         ? '<video src="video/' + ph[2] + '.mp4" poster="' + img(ph[0]) + '" controls playsinline preload="metadata"></video>'
         : '<img src="' + img(ph[0]) + '" alt="' + esc(ph[1]) + '">';
-      fill('#viewer-cap', esc(ph[1]));
+      fill('#viewer-cap', esc(ph[1]) + '<div style="margin-top:12px">' + cta(a, '') + '</div>');
       $$('.vnav').forEach(function (b) { b.hidden = a.photos.length < 2; });
     }
     function openV(i) { lastFocus = document.activeElement; V = { a: i, p: pos[i] }; show(); vw.hidden = false; document.body.style.overflow = 'hidden'; $('#viewer-close').focus(); }

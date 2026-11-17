@@ -107,7 +107,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .mnav a { text-decoration: none; color: var(--ink); font-weight: 600; padding: 12px 0; border-bottom: 1px solid var(--stone); min-height: 48px; display: flex; align-items: center; }
 .mnav a[aria-current="page"] { color: var(--navy); }
 .mnav .btn { margin-top: 14px; }
+@media (max-width: 1180px) {
+  .head-wa { display: none; }
+  .nav { gap: 0; }
+  .nav a { padding: 10px 7px; font-size: 13px; }
+}
 @media (max-width: 1080px) {
+  .brand img { height: 46px; }
+}
+@media (max-width: 860px) {
   .nav, .head-wa { display: none; }
   .burger { display: inline-flex; }
   .brand img { height: 46px; }
@@ -513,6 +521,7 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
         <div class="field"><label class="field-label" for="o-qty">Quantité</label><input class="input" id="o-qty" type="number" min="1" max="99" value="1" inputmode="numeric"></div>
       </div>
       <div class="field" id="o-txt-field"><label class="field-label" for="o-txt" id="o-txt-label">Prénom ou texte <span>(facultatif)</span></label><input class="input" id="o-txt" maxlength="40" placeholder="Par exemple : Mariama"></div>
+      <div class="field" id="o-photo-field"><label class="field-label" for="o-photo">Votre photo <span>(pour une création avec photo)</span></label><input class="input" id="o-photo" type="file" accept="image/*" style="padding:10px"><img id="o-photo-prev" alt="Votre photo" hidden style="max-width:140px;max-height:140px;object-fit:cover;margin-top:8px;border:1px solid var(--line)"><span style="font-size:13px;opacity:.75">Elle arrive avec votre commande : plus besoin de l’envoyer à part sur WhatsApp.</span></div>
       <label class="check"><input type="checkbox" id="o-urgent"><span><strong>Urgent : prêt en 24 h (+ <span data-fmt="urgent">30 000 GNF</span>)</strong><span>Votre commande passe avant les autres.</span></span></label>
     </div>
     <div class="card">
@@ -574,9 +583,9 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
     <a class="btn btn-wa btn-block" id="done-wa" href="#" target="_blank" rel="noopener"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.5c.3 2 1.8 3.8 4 4.5l1-1.3 1.8.7c-.2 1.2-1.1 1.8-2.2 1.6-3-.6-5.5-3.1-6-6.1-.2-1.1.5-2 1.6-2.2l.7 1.8z"/></svg> Envoyer ma commande sur WhatsApp</a>
     <div class="note" id="done-pay" hidden style="text-align:left">Vous avez choisi de payer maintenant : composez <strong>#144#</strong>, puis envoyez la capture du paiement sur WhatsApp avec votre numéro de commande.</div>
     <ol class="track" style="text-align:left;align-self:stretch">
-      <li><span class="dot">1</span><span><strong>Envoyez le message et votre photo</strong><p>Le message est déjà écrit : il suffit d’appuyer sur Envoyer.</p></span></li>
+      <li><span class="dot">1</span><span><strong>Envoyez le message</strong><p>Le message est déjà écrit : il suffit d’appuyer sur Envoyer.</p></span></li>
       <li><span class="dot">2</span><span><strong>Nous vous montrons le rendu</strong><p>Vous validez, puis nous fabriquons.</p></span></li>
-      <li><span class="dot">3</span><span><strong>Livraison</strong><p>Gardez votre numéro pour <a href="suivi.html">suivre votre commande</a>.</p></span></li>
+      <li><span class="dot">3</span><span><strong>Livraison</strong><p>Suivez chaque étape ici : <a id="done-suivi" href="suivi.html">suivre ma commande</a>. Le lien est aussi dans votre message WhatsApp.</p></span></li>
     </ol>
     <button class="link-arrow" type="button" id="back-edit" style="background:none;border:none;color:var(--navy);cursor:pointer">← Modifier ma commande</button>
   </div>
@@ -1194,6 +1203,7 @@ window.ENTREPRISE = {
       $('#o-txt').maxLength = p.champ ? 40 : (p.nomMax || 40);
       if (p.nomMax && $('#o-txt').value.length > p.nomMax) $('#o-txt').value = $('#o-txt').value.slice(0, p.nomMax);
       $('#o-txt-field').hidden = !!p.fixe || !!p.sansNom;
+      $('#o-photo-field').hidden = !!p.fixe || !!p.sansPhoto;
       var w2 = $('#o-opt2-wrap'); w2.hidden = !p.option2;
       if (p.option2) { fill('#o-opt2-label', esc(p.option2.label)); var s2 = $('#o-opt2'); s2.innerHTML = '<option value="-1">À préciser sur WhatsApp</option>' + p.option2.valeurs.map(function (v, i) { return '<option value="' + i + '">' + esc(v) + '</option>'; }).join(''); s2.value = String(O.opt2 >= 0 && O.opt2 < p.option2.valeurs.length ? O.opt2 : -1); }
       if (!p.option) { w.hidden = true; return; }
@@ -1242,6 +1252,16 @@ window.ENTREPRISE = {
     try { if (!$('#o-quartier').value) $('#o-quartier').value = localStorage.getItem('cc_quartier') || ''; } catch (e) {}
     drawOpt(); refresh();
 
+    var phIn = $('#o-photo'); if (phIn) phIn.addEventListener('change', function () { var f = phIn.files[0], pv = $('#o-photo-prev'); if (f) { pv.src = URL.createObjectURL(f); pv.hidden = false; } else pv.hidden = true; });
+    function compressPhoto(f) { return new Promise(function (ok, ko) { var im = new Image(); im.onload = function () { var m = 1600, w = im.naturalWidth, h = im.naturalHeight, r = Math.min(1, m / Math.max(w, h)); var cv = document.createElement('canvas'); cv.width = Math.round(w * r); cv.height = Math.round(h * r); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); cv.toBlob(function (b) { b ? ok(b) : ko(new Error('photo')); }, 'image/jpeg', .86); }; im.onerror = ko; im.src = URL.createObjectURL(f); }); }
+    async function envoyerPhoto(f, num) {
+      var DBC = window.CC_DB || {}; if (!DBC.url) return null;
+      var b = await compressPhoto(f), rnd = Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+      var name = num + '-' + rnd + '.jpg';
+      var r = await fetch(DBC.url + '/storage/v1/object/site-photos/' + name, { method: 'POST', headers: { apikey: DBC.key, 'Content-Type': 'image/jpeg' }, body: b });
+      if (!r.ok) throw new Error('upload ' + r.status);
+      return DBC.url + '/storage/v1/object/public/site-photos/' + name;
+    }
     $('#order-form').addEventListener('submit', function (e) {
       e.preventDefault();
       var ok = true;
@@ -1278,6 +1298,14 @@ window.ENTREPRISE = {
         '|',
         p.fixe || p.sansPhoto ? '' : 'J’envoie ma photo juste après ce message. (Je l’envoie en « Document » pour garder la qualité.)'
       ].filter(function (l) { return l !== ''; }).map(function (l) { return l === '|' ? '' : l; });
+      var photoF = !p.fixe && !p.sansPhoto && $('#o-photo') && $('#o-photo').files[0];
+      var code4 = $('#o-phone').value.replace(/\D/g, '').slice(-4);
+      var suiviUrl = 'https://condessckycollection.github.io/suivi.html?n=' + encodeURIComponent(num) + '&c=' + code4;
+      var win = null; if (photoF) { try { win = window.open('', '_blank'); } catch (e4) {} var sb = $('#order-form button[type=submit]'); if (sb) { sb.disabled = true; sb.dataset.t = sb.innerHTML; sb.textContent = 'Envoi de votre photo…'; } }
+      (photoF ? envoyerPhoto(photoF, num).catch(function () { return null; }) : Promise.resolve(null)).then(function (photoUrl) {
+      var sb2 = $('#order-form button[type=submit]'); if (sb2 && sb2.dataset.t) { sb2.disabled = false; sb2.innerHTML = sb2.dataset.t; }
+      if (photoUrl) { var ix = lines.findIndex(function (l) { return l.indexOf('J’envoie ma photo') === 0; }); var pl = 'Ma photo : ' + photoUrl; if (ix >= 0) lines[ix] = pl; else lines.push('', pl); }
+      lines.push('', 'Suivre ma commande : ' + suiviUrl);
       var link = wa(lines.join('\n'));
       try { var DBC = window.CC_DB || {}; if (DBC.url && DBC.key) {
         var telc = $('#o-phone').value.replace(/\D/g, ''); if (telc.length === 9) telc = '224' + telc;
@@ -1286,17 +1314,19 @@ window.ENTREPRISE = {
           date_livraison: $('#o-date').value || null,
           articles: [{ produit_id: null, nom: p.nom + (opt ? ' – ' + opt : ''), qte: s.q, prix: p.surDemande ? 0 : s.unit, perso: $('#o-txt').value.trim() }],
           sous_total: p.surDemande ? 0 : s.unit * s.q, supplement_urgent: s.urg ? CC.urgent : 0, livraison: s.z === 'conakry' ? s.liv : 0,
-          total: p.surDemande ? 0 : s.total, details: lines.join('\n') };
+          total: p.surDemande ? 0 : s.total, details: lines.join('\n'), photos: photoUrl ? [{ path: photoUrl, type: 'Photo du client', date: d.toISOString() }] : [] };
         fetch(DBC.url + '/rest/v1/commandes', { method: 'POST', keepalive: true, headers: { apikey: DBC.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row) }).catch(function () {});
       } } catch (e3) {}
-      try { window.open(link, '_blank', 'noopener'); } catch (e2) {}
+      try { if (win) win.location.href = link; else if (!photoF) window.open(link, '_blank', 'noopener'); } catch (e2) {}
       fill('#done-num', num);
       $('#done-wa').href = link;
       fill('#done-total', p.surDemande ? 'communiqué sur WhatsApp' : fmt(s.total));
       $('#done-pay').hidden = pay() !== 'om-now';
       $('#form-zone').hidden = true; $('#done').hidden = false;
-      set('cc_orders', [{ num: num, date: d.toISOString(), produit: p.nom, total: s.total }].concat(get('cc_orders') || []).slice(0, 10));
+      var ts = $('#done-suivi'); if (ts) ts.href = suiviUrl;
+      set('cc_orders', [{ num: num, code: code4, date: d.toISOString(), produit: p.nom, total: s.total }].concat(get('cc_orders') || []).slice(0, 10));
       window.scrollTo(0, 0); $('#done h2').focus();
+      });
     });
     $('#back-edit').addEventListener('click', function () { $('#done').hidden = true; $('#form-zone').hidden = false; });
     var cp = $('#copy-num'); if (cp) cp.addEventListener('click', function () {
