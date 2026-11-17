@@ -430,6 +430,14 @@ function vLivraisons() {
 var filtreCmd = 'encours', rechCmd = '';
 function vCommandes() {
   var fs = [['encours', 'En cours'], ['nouvelle', 'Nouvelles'], ['fabrication', 'Fabrication'], ['prete', 'Prêtes'], ['livraison', 'Livraison'], ['livree', 'Livrées'], ['devis', 'Devis'], ['annulee', 'Annulées'], ['toutes', 'Toutes']];
+  var body = '<input id="r" type="search" placeholder="Chercher un nom, un numéro…" value="' + esc(rechCmd) + '">' +
+    '<div class="chips">' + fs.map(function (f) { return '<button data-f="' + f[0] + '" class="' + (filtreCmd === f[0] ? 'on' : '') + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+    '<section class="card" id="lst">' + listeCmdHTML() + '</section>';
+  render(page({ title: 'Commandes', body: body, nav: 'cmd' }));
+  q('#r').oninput = function (e) { rechCmd = e.target.value; q('#lst').innerHTML = listeCmdHTML(); };
+  qa('[data-f]').forEach(function (b) { b.onclick = function () { filtreCmd = b.dataset.f; vCommandes(); }; });
+}
+function listeCmdHTML() {
   var list = S.data.commandes.filter(function (c) {
     if (filtreCmd === 'devis') { if (!isDevis(c)) return false; }
     else { if (isDevis(c) && filtreCmd !== 'toutes') return false;
@@ -438,12 +446,7 @@ function vCommandes() {
     if (rechCmd) { var h = (c.client_nom + ' ' + c.client_tel + ' ' + c.numero + ' ' + title(c)).toLowerCase(); if (h.indexOf(rechCmd.toLowerCase()) < 0) return false; }
     return true;
   });
-  var body = '<input id="r" type="search" placeholder="Chercher un nom, un numéro…" value="' + esc(rechCmd) + '">' +
-    '<div class="chips">' + fs.map(function (f) { return '<button data-f="' + f[0] + '" class="' + (filtreCmd === f[0] ? 'on' : '') + '">' + f[1] + '</button>'; }).join('') + '</div>' +
-    '<section class="card">' + (list.length ? list.map(function (c) { return '<a class="row" href="#/commande/' + c.id + '"><div class="grow"><span class="t">' + esc(title(c)) + '</span><span class="mut">' + esc(c.client_nom) + ' · ' + dshort(c.created_at) + ' · ' + (n(c.total) ? fmt(c.total) : 'prix à fixer') + (resteFor(c) ? ' · reste ' + fmtn(resteFor(c)) : '') + '</span></div>' + chip(c) + '</a>'; }).join('') : '<div class="empty">Aucune commande ici.</div>') + '</section>';
-  render(page({ title: 'Commandes', body: body, nav: 'cmd' }));
-  q('#r').oninput = function (e) { rechCmd = e.target.value; var p = e.target.selectionStart; vCommandes(); var r = q('#r'); r.focus(); r.setSelectionRange(p, p); };
-  qa('[data-f]').forEach(function (b) { b.onclick = function () { filtreCmd = b.dataset.f; vCommandes(); }; });
+  return (list.length ? list.map(function (c) { return '<a class="row" href="#/commande/' + c.id + '"><div class="grow"><span class="t">' + esc(title(c)) + '</span><span class="mut">' + esc(c.client_nom) + ' · ' + dshort(c.created_at) + ' · ' + (n(c.total) ? fmt(c.total) : 'prix à fixer') + (resteFor(c) ? ' · reste ' + fmtn(resteFor(c)) : '') + '</span></div>' + chip(c) + '</a>'; }).join('') : '<div class="empty">Aucune commande ici.</div>');
 }
 
 function vCommande(id) {
@@ -453,7 +456,9 @@ function vCommande(id) {
   var idx = STATUTS.map(function (s) { return s[0]; }).indexOf(c.statut);
   var next = (!dv && idx >= 0 && idx < 4) ? STATUTS[idx + 1] : null;
   var tel = c.client_tel; var ph = c.photos || [];
-  var body = '<section class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(c.numero) + '</b>' + chip(c) + '</div>' +
+  var justPaid = S.justPaid === c.id; S.justPaid = null;
+  var body = (justPaid ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ Paiement enregistré</h2><p class="mut" style="margin:0 0 10px">Donne son reçu au client :</p><div class="grid2"><button class="btn sm or" id="recu2" style="width:100%">🧾 Reçu en image</button>' + (tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(tel, recuTexte(c)) + '">Reçu par WhatsApp</a>' : '') + '</div></section>' : '') +
+    '<section class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(c.numero) + '</b>' + chip(c) + '</div>' +
     '<div class="mut" style="margin-top:4px">' + dshort(c.created_at) + ' · ' + esc(SRC[c.source] || c.source) + (c.urgent ? ' · ⚡ Urgent' : '') + (c.date_livraison ? ' · pour le ' + dshort(c.date_livraison) : '') + '</div>' +
     (dv ? '<p class="mut" style="margin:10px 0 0">C’est un devis : il ne compte pas dans les ventes tant que le client n’a pas accepté.</p><button class="btn navy" id="accept" style="margin-top:10px">✓ Le client accepte : en faire une commande</button>' : '') +
     (!n(c.total) && !dv ? '<p style="margin:10px 0 0;color:var(--bad);font-weight:700;font-size:13px">Prix à fixer : touche « Modifier » pour mettre les prix.</p>' : '') +
@@ -484,8 +489,9 @@ function vCommande(id) {
   qa('[data-st]').forEach(function (b) { b.onclick = function () { setSt(b.dataset.st); }; });
   if (q('#accept')) q('#accept').onclick = async function () { await act(async function () { await DB.update('commandes', c.id, { type: 'commande', statut: 'nouvelle' }); await baisserStock(c.articles); }, 'Devis accepté : c’est une commande'); vCommande(id); };
   if (q('#pmode')) q('#pmode').onchange = function (e) { q('#pref').hidden = e.target.value !== 'orange_money'; };
-  if (q('#fp')) q('#fp').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (n(d.montant) <= 0) return toast('Montant invalide'); await act(function () { return DB.insert('paiements', { commande_id: c.id, montant: n(d.montant), mode: d.mode, reference: d.mode === 'orange_money' && d.reference ? d.reference.trim() : null, date: new Date().toISOString() }); }, 'Paiement enregistré'); vCommande(id); };
+  if (q('#fp')) q('#fp').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (n(d.montant) <= 0) return toast('Montant invalide'); await act(function () { return DB.insert('paiements', { commande_id: c.id, montant: n(d.montant), mode: d.mode, reference: d.mode === 'orange_money' && d.reference ? d.reference.trim() : null, date: new Date().toISOString() }); }, 'Paiement enregistré'); S.justPaid = c.id; vCommande(id); };
   if (q('#recu')) q('#recu').onclick = function () { recuImage(c); };
+  if (q('#recu2')) q('#recu2').onclick = function () { recuImage(c); };
   if (q('#fi')) q('#fi').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); await act(function () { return DB.update('commandes', c.id, { gare: d.gare || null, transport_frais: n(d.transport_frais), chauffeur_nom: d.chauffeur_nom || null, chauffeur_tel: d.chauffeur_tel || null }); }, 'Envoi enregistré'); vCommande(id); };
   q('#fn').onsubmit = async function (e) { e.preventDefault(); await act(function () { return DB.update('commandes', c.id, { details: formData(e.target).details }); }, 'Note enregistrée'); };
   if (q('#del')) q('#del').onclick = async function () { if (!confirm('Supprimer définitivement ' + c.numero + ' et ses paiements ?')) return; await act(function () { return DB.remove('commandes', c.id); }, 'Supprimé'); S.data.paiements = S.data.paiements.filter(function (p) { return p.commande_id !== c.id; }); location.hash = '#/commandes'; };
@@ -585,7 +591,7 @@ function vVente() {
     (k.cl ? '<div class="mut">Client connu : ' + k.nb + ' commande(s) déjà.' + (k.fid ? ' <b style="color:var(--ok)">⭐ Remise fidélité appliquée.</b>' : '') + '</div>' : '') +
     '<label>Venu par<select name="source">' + SOURCES.map(function (s) { return '<option value="' + s[0] + '"' + (V.source === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></label></section>' +
     '<section class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Articles</h2>' +
-    V.articles.map(function (a, i) { return '<div class="art"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:14px">' + esc(a.nom) + '</b><button type="button" class="btn sm danger" data-rm="' + i + '" style="min-height:30px;padding:0 10px">✕</button></div><div class="grid2"><label>Quantité<input type="number" min="1" data-qte="' + i + '" value="' + a.qte + '"></label><label>Prix unitaire<input type="number" data-prix="' + i + '" value="' + a.prix + '"></label></div><label>Personnalisation<input data-perso="' + i + '" value="' + esc(a.perso || '') + '" placeholder="Prénom, couleur, modèle…"></label></div>'; }).join('') +
+    V.articles.map(function (a, i) { return '<div class="art"><div style="display:flex;justify-content:space-between;gap:8px">' + (a.libre ? '<input data-nom="' + i + '" value="' + esc(a.nom) + '" placeholder="Nom de l’article (ex. Porte-clés)">' : '<b style="font-size:14px">' + esc(a.nom) + '</b>') + '<button type="button" class="btn sm danger" data-rm="' + i + '" style="min-height:30px;padding:0 10px">✕</button></div><div class="grid2"><label>Quantité<input type="number" min="1" data-qte="' + i + '" value="' + a.qte + '"></label><label>Prix unitaire<input type="number" data-prix="' + i + '" value="' + a.prix + '"></label></div><label>Personnalisation<input data-perso="' + i + '" value="' + esc(a.perso || '') + '" placeholder="Prénom, couleur, modèle…"></label></div>'; }).join('') +
     '<label>Ajouter un article<select id="addp"><option value="">— Choisir un produit —</option>' + prods.map(function (p) { return '<option value="' + p.id + '">' + esc(p.nom) + ' · ' + fmtn(p.prix) + (p.suivi_stock ? ' (stock ' + n(p.stock) + ')' : '') + '</option>'; }).join('') + '<option value="libre">Autre article (texte libre)</option></select></label>' +
     '<label class="check"><input type="checkbox" name="tarifPro"' + (V.tarifPro ? ' checked' : '') + '> Tarif entreprise / école (−10 % dès 10, −15 % dès 50, −20 % dès 100 pièces)</label></section>' +
     '<section class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Livraison</h2>' +
@@ -608,12 +614,13 @@ function vVente() {
   function sync() { var d = formData(f); ['client_nom', 'quartier', 'ville', 'source', 'livr', 'date_livraison', 'acompte', 'mode', 'details', 'reference', 'gare'].forEach(function (x) { if (d[x] != null) V[x] = d[x]; }); V.client_tel = (d.client_tel || '').trim(); V.urgent = !!f.urgent.checked; V.tarifPro = !!f.tarifPro.checked;
     qa('[data-qte]').forEach(function (e) { V.articles[e.dataset.qte].qte = n(e.value) || 1; });
     qa('[data-prix]').forEach(function (e) { V.articles[e.dataset.prix].prix = n(e.value); });
-    qa('[data-perso]').forEach(function (e) { V.articles[e.dataset.perso].perso = e.value; }); }
+    qa('[data-perso]').forEach(function (e) { V.articles[e.dataset.perso].perso = e.value; });
+    qa('[data-nom]').forEach(function (e) { V.articles[e.dataset.nom].nom = e.value; }); }
   f.addEventListener('change', function (e) {
     sync();
     var redraw = e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.dataset.qte != null || e.target.dataset.prix != null;
     if (e.target.name === 'client_tel') { var cl = S.data.clients.filter(function (c) { return V.client_tel && telWa(c.telephone) === telWa(V.client_tel); })[0]; if (cl) { V.client_nom = cl.nom; V.quartier = cl.quartier || ''; V.ville = cl.ville || 'Conakry'; redraw = true; } }
-    if (e.target.id === 'addp' && e.target.value) { var v = e.target.value; if (v === 'libre') { var nm = prompt('Nom de l’article ?'); if (nm) V.articles.push({ produit_id: null, nom: nm, qte: 1, prix: 0, perso: '' }); } else { var p = findById('produits', Number(v)); V.articles.push({ produit_id: p.id, nom: p.nom, qte: 1, prix: n(p.prix), perso: '' }); } }
+    if (e.target.id === 'addp' && e.target.value) { var v = e.target.value; if (v === 'libre') { V.articles.push({ produit_id: null, nom: '', libre: true, qte: 1, prix: 0, perso: '' }); } else { var p = findById('produits', Number(v)); V.articles.push({ produit_id: p.id, nom: p.nom, qte: 1, prix: n(p.prix), perso: '' }); } }
     if (e.target.name === 'livr' && V.livr === 'interieur' && /conakry/i.test(V.ville)) V.ville = '';
     if (redraw) vVente();
   });
@@ -624,6 +631,8 @@ function vVente() {
   f.onsubmit = async function (e) {
     e.preventDefault(); sync(); var k2 = venteCalc();
     if (!V.articles.length) return toast('Ajoute au moins un article');
+    if (V.articles.some(function (a) { return !String(a.nom).trim(); })) return toast('Écris le nom de l’article');
+    V.articles.forEach(function (a) { delete a.libre; });
     if (V.livr === 'interieur' && !V.ville.trim()) return toast('Indique la ville de destination');
     var row = { client_nom: V.client_nom.trim(), client_tel: telWa(V.client_tel) || null, quartier: V.quartier || null, ville: V.ville || 'Conakry', source: V.source, urgent: V.urgent,
       date_livraison: V.date_livraison || null, articles: V.articles, sous_total: k2.st, remise: k2.remise, supplement_urgent: k2.urg, livraison: k2.liv, total: k2.total, details: V.details || null, gare: V.livr === 'interieur' ? (V.gare || null) : null };
@@ -646,7 +655,7 @@ function vVente() {
         }
       }, V.editId ? 'Modifications enregistrées ✓' : (V.type === 'devis' ? 'Devis enregistré ✓' : 'Vente enregistrée ✓'));
     } catch (er) { return; }
-    var go = c.id; V = null; location.hash = '#/commande/' + go;
+    var go = c.id; if (!V.editId && V.type !== 'devis' && n(V.acompte) > 0) S.justPaid = go; V = null; location.hash = '#/commande/' + go;
   };
 }
 
@@ -749,19 +758,21 @@ function vBilan(per) {
 function vProduits() {
   var cats = {}; S.data.produits.forEach(function (p) { (cats[p.categorie] = cats[p.categorie] || []).push(p); });
   var pat = isPatron();
-  var body = '<p class="mut" style="margin:0">' + (pat ? 'Touche un prix pour le changer. Le stock des vierges baisse à chaque vente et monte quand tu enregistres un achat.' : 'Prix et stock (modifiables par le patron).') + '</p>' + Object.keys(cats).map(function (c) {
+  var body = '<p class="mut" style="margin:0">' + (pat ? 'Tape le nouveau prix ou le stock dans la case : c’est enregistré dès que tu sors de la case. Le stock des vierges baisse à chaque vente et monte quand tu enregistres un achat.' : 'Prix et stock (modifiables par le patron).') + '</p>' + Object.keys(cats).map(function (c) {
     return '<section class="card"><h2>' + esc(c) + '</h2>' + cats[c].map(function (p) {
       var low = p.suivi_stock && n(p.stock) <= n(p.stock_alerte);
       return '<div class="row" style="flex-wrap:wrap;padding:6px 0"><div class="grow"><span class="t" style="white-space:normal">' + esc(p.nom) + (p.actif === false ? ' <span class="mut">(caché)</span>' : '') + '</span>' + (p.suivi_stock ? '<span class="mut" style="color:' + (low ? 'var(--bad)' : 'var(--mut)') + '">Stock vierges : <b>' + n(p.stock) + '</b>' + (low ? ' · à recommander' : '') + '</span>' : '') + (pat && n(p.prix_achat) ? '<span class="mut">Achat : ' + fmtn(p.prix_achat) + '</span>' : '') + '</div>' +
-        (pat && p.suivi_stock ? '<button class="btn sm" data-sm="' + p.id + '" style="min-height:34px;padding:0 10px">−</button><button class="btn sm" data-sp="' + p.id + '" style="min-height:34px;padding:0 10px">＋</button>' : '') +
-        '<button class="btn sm or" data-pr="' + p.id + '" style="min-height:34px">' + fmtn(p.prix) + '</button>' + (pat ? '<button class="btn sm" data-ed="' + p.id + '" style="min-height:34px;padding:0 10px" aria-label="Modifier">✎</button>' : '') + '</div>';
+        (pat ? (p.suivi_stock ? '<label style="width:78px;font-size:11px">Stock<input type="number" inputmode="numeric" data-stk="' + p.id + '" value="' + n(p.stock) + '" style="padding:8px"></label>' : '') +
+          '<label style="width:112px;font-size:11px">Prix (GNF)<input type="number" inputmode="numeric" data-pr="' + p.id + '" value="' + n(p.prix) + '" style="padding:8px"></label>' +
+          '<button class="btn sm" data-ed="' + p.id + '" style="min-height:40px;padding:0 10px;align-self:flex-end" aria-label="Modifier">✎</button>'
+        : '<b style="font-size:14px">' + fmtn(p.prix) + '</b>') + '</div>';
     }).join('') + '</section>';
   }).join('') + (pat ? '<button class="btn or" id="addprod">＋ Ajouter un produit</button>' : '');
   render(page({ title: 'Produits et prix', back: 1, body: body, nav: 'menu' }));
   if (!pat) return;
   function P(id) { return findById('produits', Number(id)); }
-  qa('[data-pr]').forEach(function (b) { b.onclick = async function () { var p = P(b.dataset.pr); var v = prompt('Nouveau prix pour « ' + p.nom + ' » (GNF) :', p.prix); if (v == null || n(v) <= 0) return; await act(function () { return DB.update('produits', p.id, { prix: n(v) }); }, 'Prix mis à jour'); vProduits(); }; });
-  qa('[data-sp],[data-sm]').forEach(function (b) { b.onclick = async function () { var id = b.dataset.sp || b.dataset.sm; var p = P(id); var delta = b.dataset.sp ? 1 : -1; var v = prompt(delta > 0 ? 'Combien de vierges ajouter au stock de « ' + p.nom + ' » ?' : 'Combien de vierges retirer (cassés, perdus…) ?', '1'); if (v == null) return; await act(function () { return DB.update('produits', p.id, { stock: Math.max(0, n(p.stock) + delta * n(v)) }); }); vProduits(); }; });
+  qa('[data-pr]').forEach(function (i) { i.onchange = async function () { var p = P(i.dataset.pr); if (n(i.value) <= 0) { i.value = p.prix; return toast('Prix invalide'); } if (n(i.value) === n(p.prix)) return; await act(function () { return DB.update('produits', p.id, { prix: n(i.value) }); }, 'Prix enregistré : ' + p.nom); }; });
+  qa('[data-stk]').forEach(function (i) { i.onchange = async function () { var p = P(i.dataset.stk); if (n(i.value) < 0) { i.value = p.stock; return; } if (n(i.value) === n(p.stock)) return; await act(function () { return DB.update('produits', p.id, { stock: n(i.value) }); }, 'Stock enregistré : ' + p.nom); }; });
   qa('[data-ed]').forEach(function (b) { b.onclick = function () { location.hash = '#/produit/' + b.dataset.ed; }; });
   q('#addprod').onclick = function () { location.hash = '#/produit/nouveau'; };
 }
@@ -784,13 +795,16 @@ function vProduitEdit(id) {
 /* ---- Clients ---- */
 var rechCl = '';
 function vClients() {
+  var body = '<input id="r" type="search" placeholder="Chercher un client…" value="' + esc(rechCl) + '"><div class="mut">' + S.data.clients.length + ' client(s) · les fiches se créent toutes seules à chaque vente.</div>' +
+    '<section class="card" id="lst">' + listeClHTML() + '</section>';
+  render(page({ title: 'Clients', back: 1, body: body, nav: 'menu' }));
+  q('#r').oninput = function (e) { rechCl = e.target.value; q('#lst').innerHTML = listeClHTML(); };
+}
+function listeClHTML() {
   var list = S.data.clients.map(function (c) { var cs = cmdsOfClient(c); return { c: c, nb: cs.length, tot: cs.reduce(function (a, x) { return a + n(x.total); }, 0) }; })
     .filter(function (x) { return !rechCl || (x.c.nom + ' ' + x.c.telephone + ' ' + (x.c.quartier || '')).toLowerCase().indexOf(rechCl.toLowerCase()) >= 0; })
     .sort(function (a, b) { return b.tot - a.tot; });
-  var body = '<input id="r" type="search" placeholder="Chercher un client…" value="' + esc(rechCl) + '"><div class="mut">' + S.data.clients.length + ' client(s) · les fiches se créent toutes seules à chaque vente.</div>' +
-    '<section class="card">' + (list.map(function (x) { return '<a class="row" href="#/client/' + x.c.id + '"><span class="ico">' + (x.nb >= n(R('remise_fidelite_des')) ? '⭐' : '👤') + '</span><div class="grow"><span class="t">' + esc(x.c.nom) + '</span><span class="mut">' + esc([x.c.telephone, x.c.quartier].filter(Boolean).join(' · ')) + '</span></div><div style="text-align:right"><b style="font-size:13px">' + fmtn(x.tot) + '</b><div class="mut">' + x.nb + ' cmd</div></div></a>'; }).join('') || '<div class="empty">Aucun client pour l’instant.</div>') + '</section>';
-  render(page({ title: 'Clients', back: 1, body: body, nav: 'menu' }));
-  q('#r').oninput = function (e) { rechCl = e.target.value; var p = e.target.selectionStart; vClients(); var r = q('#r'); r.focus(); r.setSelectionRange(p, p); };
+  return (list.map(function (x) { return '<a class="row" href="#/client/' + x.c.id + '"><span class="ico">' + (x.nb >= n(R('remise_fidelite_des')) ? '⭐' : '👤') + '</span><div class="grow"><span class="t">' + esc(x.c.nom) + '</span><span class="mut">' + esc([x.c.telephone, x.c.quartier].filter(Boolean).join(' · ')) + '</span></div><div style="text-align:right"><b style="font-size:13px">' + fmtn(x.tot) + '</b><div class="mut">' + x.nb + ' cmd</div></div></a>'; }).join('') || '<div class="empty">Aucun client pour l’instant.</div>');
 }
 function vClient(id) {
   var c = findById('clients', Number(id)); if (!c) return vClients();
@@ -845,14 +859,14 @@ function vMenu() {
   if (S.role === 'livreur') it = [['#/', '🚚', 'Mes livraisons'], ['#/commandes', '🛍️', 'Commandes']];
   it.push(['../', '🌐', 'Voir le site']);
   var body = '<section class="card">' + it.map(function (x) { return '<a class="row" href="' + x[0] + '"><span class="ico">' + x[1] + '</span><span class="grow t">' + x[2] + '</span><span class="mut">›</span></a>'; }).join('') + '</section>' +
-    '<section class="card"><h2>Sécurité de ce téléphone</h2><p class="mut" style="margin:0 0 10px">' + (pinSet() ? 'Un code PIN protège l’application sur ce téléphone.' : 'Ajoute un code PIN : il sera demandé à l’ouverture.') + '</p><div class="grid2"><button class="btn sm" id="pin" style="width:100%">' + (pinSet() ? 'Changer le PIN' : 'Créer un PIN') + '</button>' + (pinSet() ? '<button class="btn sm danger" id="nopin" style="width:100%">Retirer le PIN</button>' : '') + '</div>' +
+    '<section class="card"><h2>Sécurité de ce téléphone</h2><p class="mut" style="margin:0 0 10px">' + (pinSet() ? 'Un code PIN protège l’application sur ce téléphone.' : 'Ajoute un code PIN : il sera demandé à l’ouverture.') + '</p><form id="fpin" style="gap:8px"><div class="grid2"><input name="a" type="password" inputmode="numeric" maxlength="8" placeholder="Nouveau PIN" autocomplete="new-password"><input name="b" type="password" inputmode="numeric" maxlength="8" placeholder="Retape-le" autocomplete="new-password"></div><button class="btn sm" type="submit" style="width:100%">' + (pinSet() ? 'Changer le PIN' : 'Créer le PIN') + '</button></form>' + (pinSet() ? '<button class="btn sm danger" id="nopin" style="width:100%;margin-top:8px">Retirer le PIN</button>' : '') +
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.1</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
-  q('#pin').onclick = async function () { var a = prompt('Nouveau code PIN (4 à 8 chiffres) :'); if (!a) return; if (!/^\d{4,8}$/.test(a)) return toast('Le PIN doit faire 4 à 8 chiffres'); var b = prompt('Retape le code PIN :'); if (a !== b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
+  q('#fpin').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (!/^\d{4,8}$/.test(d.a)) return toast('Le PIN doit faire 4 à 8 chiffres'); if (d.a !== d.b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(d.a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
   if (q('#nopin')) q('#nopin').onclick = function () { try { localStorage.removeItem('condesscky_pin'); } catch (e) {} toast('PIN retiré'); vMenu(); };
   if (q('#outall')) q('#outall').onclick = async function () { if (!confirm('Déconnecter TOUS les téléphones, y compris celui-ci ? Il faudra se reconnecter avec le mot de passe.')) return; await DB.logout(true); S.user = null; route(); };
   q('#sync').onclick = async function () { await act(async function () { await DB.flush(); await DB.load(); }, 'Données à jour'); vMenu(); };
