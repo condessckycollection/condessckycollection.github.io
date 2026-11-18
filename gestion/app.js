@@ -471,7 +471,7 @@ function cmdsFiltre(f, rech) {
   }).sort(function (a, b) { return ((ORDRE[a.statut] || 0) - (ORDRE[b.statut] || 0)) || String(b.created_at).localeCompare(String(a.created_at)); });
 }
 function listeCmdHTML() {
-  var list = cmdsFiltre(filtreCmd, rechCmd);
+  var list = cmdsFiltre(rechCmd ? 'toutes' : filtreCmd, rechCmd); // la recherche cherche dans toutes les commandes
   return (list.length ? list.map(function (c) { return '<a class="row" href="#/commande/' + c.id + '"><div class="grow"><span class="t">' + esc(title(c)) + '</span><span class="mut">' + esc(c.client_nom) + ' · ' + dshort(c.created_at) + ' · ' + (n(c.total) ? fmt(c.total) : 'prix à fixer') + (resteFor(c) ? ' · reste ' + fmtn(resteFor(c)) : '') + '</span></div>' + chip(c) + '</a>'; }).join('') : '<div class="empty">Aucune commande ici.</div>');
 }
 
