@@ -264,7 +264,7 @@ function periode(p) {
 }
 function bilan(from, to) {
   var cmds = vraies().filter(function (c) { return c.statut !== 'annulee' && inPeriod(c.created_at, from, to); });
-  var pays = S.data.paiements.filter(function (p) { return inPeriod(p.date, from, to); });
+  var pays = S.data.paiements.filter(function (p) { return inPeriod(p.date, from, to) && String(p.note || '').indexOf('Fond de caisse') !== 0; });
   var deps = S.data.depenses.filter(function (d) { return inPeriod(d.date, from, to); });
   var b = { cmds: cmds, ventes: 0, encaisse: 0, esp: 0, om: 0, depenses: 0, depCat: {}, src: {}, prod: {}, cout: 0 };
   cmds.forEach(function (c) {
@@ -345,7 +345,8 @@ function nav(active) {
   var it = navItems();
   return '<nav class="bot" aria-label="Menu principal" style="grid-template-columns:repeat(' + it.length + ',1fr)">' + it.map(function (x) {
     var ic = x[1] === '+' ? '<span class="plus" aria-hidden="true">+</span>' : '<span aria-hidden="true" style="font-size:20px">' + x[1] + '</span>';
-    return '<a href="' + x[0] + '" class="' + (active === x[3] ? 'on' : '') + '">' + ic + x[2] + '</a>'; }).join('') + '</nav>';
+    var nb = x[3] === 'cmd' && S.data ? vraies().filter(function (c) { return c.statut === 'nouvelle'; }).length : 0;
+    return '<a href="' + x[0] + '" class="' + (active === x[3] ? 'on' : '') + '" style="position:relative">' + ic + x[2] + (nb ? '<span style="position:absolute;top:2px;right:18%;background:#D93025;color:#fff;border-radius:10px;font-size:11px;font-weight:800;padding:1px 6px">' + nb + '</span>' : '') + '</a>'; }).join('') + '</nav>';
 }
 function page(o) {
   var head = o.back ? '<header class="top"><button class="back" aria-label="Retour" onclick="history.back()">‹</button><h1>' + esc(o.title) + '</h1>' + (o.right || '') + '</header>'
@@ -408,7 +409,15 @@ function vHome() {
   var t = today(); var b = bilan(t, t); var s = soldesTotaux(); var rp = rappels();
   if (!isPatron()) rp = rp.filter(function (r) { return ['📊', '💰'].indexOf(r.ico) < 0; });
   var enCours = vraies().filter(function (c) { return ['livree', 'annulee'].indexOf(c.statut) < 0; });
-  var body = '<div><span class="mut">' + cap(dlong(t)) + '</span><div style="display:flex;align-items:baseline;gap:8px"><span class="script">Bonjour,</span><b style="font-size:20px">' + (isPatron() ? 'le patron' : esc(first(nomEquipe()))) + '</b></div></div>' +
+  var aValider = vraies().filter(function (c) { return c.statut === 'nouvelle'; }).sort(function (a, b2) { return String(b2.created_at).localeCompare(String(a.created_at)); });
+  var valHTML = aValider.length ? '<section class="card" style="border:2px solid var(--or)"><h2>🛒 À valider (' + aValider.length + ')</h2>' + aValider.slice(0, 8).map(function (c) {
+      var ph = (c.photos || [])[0], perso = (c.articles || []).map(function (a) { return a.perso; }).filter(Boolean).join(' · ');
+      return '<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid #EEF1F5"><a href="#/commande/' + c.id + '" style="flex:0 0 64px;height:64px;border-radius:10px;background:#F1EEE8;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;text-decoration:none">' + (ph ? '<img data-vph="' + esc(ph.path) + '" alt="Photo du client" style="width:100%;height:100%;object-fit:cover">' : '🎁') + '</a>' +
+        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><b style="font-size:14px">' + esc(title(c)) + '</b>' + (perso ? '<span style="font-size:13px">✏️ ' + esc(perso) + '</span>' : '') +
+        '<span class="mut">' + esc(SRC[c.source] || c.source) + (c.quartier ? ' · ' + esc(c.quartier) : '') + ' · ' + (n(c.total) ? fmt(c.total) : 'prix à fixer') + '</span>' +
+        '<div class="grid2" style="margin-top:6px"><button class="btn sm navy" data-valider="' + c.id + '" style="width:100%">✓ Valider</button><a class="btn sm" href="#/commande/' + c.id + '" style="width:100%">Voir</a></div></div></div>';
+    }).join('') + '</section>' : '';
+  var body = valHTML + '<div><span class="mut">' + cap(dlong(t)) + '</span><div style="display:flex;align-items:baseline;gap:8px"><span class="script">Bonjour,</span><b style="font-size:20px">' + (isPatron() ? 'le patron' : esc(first(nomEquipe()))) + '</b></div></div>' +
     (isPatron() ? '<section class="hero" aria-label="Bilan du jour"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">Bilan du jour</b><a href="#/bilan/jour" style="font-size:12px;background:var(--navy2);color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none">' + b.cmds.length + ' vente(s) · Voir</a></div>' +
     '<div><small style="color:#D6E4F5;font-size:12px">Argent du jour (encaissé − dépenses)</small><div class="big">' + fmt(b.solde) + '</div></div>' +
     '<div class="grid2"><div class="tile"><small>Encaissé</small><b>' + fmt(b.encaisse) + '</b></div><div class="tile"><small>Dépenses</small><b>' + fmt(b.depenses) + '</b></div></div></section>' +
@@ -418,6 +427,8 @@ function vHome() {
     '<section class="card"><div style="display:flex;justify-content:space-between"><h2>Commandes en cours (' + enCours.length + ')</h2><a href="#/commandes" style="font-size:13px;font-weight:700;color:var(--navy)">Tout voir</a></div>' +
     (enCours.length ? enCours.slice(0, 6).map(cmdRow).join('') : '<div class="empty">Aucune commande en cours.</div>') + '</section>';
   render(page({ body: body, nav: 'home', right: '<a href="#/taches" class="btn sm" style="border-width:1px">✓ Tâches</a>' }));
+  var vph = qa('[data-vph]'); if (vph.length) DB.photoUrls(vph.map(function (im) { return im.dataset.vph; })).then(function (u) { vph.forEach(function (im) { if (u[im.dataset.vph]) im.src = u[im.dataset.vph]; }); }).catch(function () {});
+  qa('[data-valider]').forEach(function (b2) { b2.onclick = async function () { var id = Number(b2.dataset.valider); b2.disabled = true; await act(function () { return DB.update('commandes', id, { statut: 'confirmee' }); }, 'Commande validée ✓'); S.justSt = id; location.hash = '#/commande/' + id; }; });
 }
 function nomEquipe() { var em = String((S.user && S.user.email) || '').toLowerCase(); var p = S.data.profils.filter(function (x) { return String(x.email).toLowerCase() === em; })[0]; return (p && p.nom) || em.split('@')[0]; }
 
@@ -464,7 +475,8 @@ function vCommande(id) {
   var next = (!dv && idx >= 0 && idx < 5) ? STATUTS[idx + 1] : null;
   var tel = c.client_tel; var ph = c.photos || [];
   var justPaid = S.justPaid === c.id; S.justPaid = null; var justSt = S.justSt === c.id; S.justSt = null;
-  var body = (justSt && tel ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Préviens le client : il reçoit le message avec le lien pour suivre sa commande.</p><a class="btn wa" target="_blank" rel="noopener" href="' + waLink(tel, msgStatut(c, c.statut)) + '">Prévenir ' + esc(first(c.client_nom)) + ' sur WhatsApp</a></section>' : '') +
+  var body = (justSt && !tel && !isDevis(c) ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Pour envoyer le lien de suivi au client, ajoute son numéro WhatsApp (celui qui t’a écrit) :</p><form id="ftel" style="gap:8px">' + (c.client_nom === 'Client du site' ? '<input name="nom" placeholder="Nom du client (facultatif)">' : '') + '<input name="tel" type="tel" inputmode="tel" placeholder="6XX XX XX XX" required><button class="btn wa" type="submit">Enregistrer et prévenir le client</button></form></section>' : '') +
+    (justSt && tel ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Préviens le client : il reçoit le message avec le lien pour suivre sa commande.</p><a class="btn wa" target="_blank" rel="noopener" href="' + waLink(tel, msgStatut(c, c.statut)) + '">Prévenir ' + esc(first(c.client_nom)) + ' sur WhatsApp</a></section>' : '') +
     (c.statut === 'nouvelle' && !dv && !justSt ? '<section class="card" style="border:2px solid var(--or, #F29A00)"><h2>Nouvelle commande</h2><p class="mut" style="margin:0 0 10px">Vérifie la commande puis confirme-la : le client pourra suivre chaque étape.</p><button class="btn navy" id="confirm">✓ Confirmer la commande</button></section>' : '') +
     (justPaid ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ Paiement enregistré</h2><p class="mut" style="margin:0 0 10px">Donne son reçu au client :</p><div class="grid2"><button class="btn sm or" id="recu2" style="width:100%">🧾 Reçu en image</button>' + (tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(tel, recuTexte(c)) + '">Reçu par WhatsApp</a>' : '') + '</div></section>' : '') +
     '<section class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + esc(c.numero) + '</b>' + chip(c) + '</div>' +
@@ -482,9 +494,9 @@ function vCommande(id) {
     (c.supplement_urgent ? '<div class="line"><span>Supplément urgent</span><b>' + fmtn(c.supplement_urgent) + '</b></div>' : '') +
     (c.livraison ? '<div class="line"><span>Livraison</span><b>' + fmtn(c.livraison) + '</b></div>' : '') +
     '<div class="line tot"><span>Total</span><span>' + fmt(c.total) + '</span></div></section>' +
-    (!dv ? '<section class="card"><h2>Paiements</h2>' + (pays.map(function (p) { return '<div class="line"><span>' + dshort(p.date) + ' · ' + MODEL[p.mode] + (p.reference ? '<br><span class="mut">Réf. ' + esc(p.reference) + '</span>' : '') + '</span><b>' + fmtn(p.montant) + '</b></div>'; }).join('') || '<div class="mut">Aucun paiement pour l’instant.</div>') +
+    (!dv ? '<section class="card"><h2>Paiements</h2>' + (pays.map(function (p) { return '<div class="line"><span>' + dshort(p.date) + ' · ' + MODEL[p.mode] + (p.reference ? '<br><span class="mut">Réf. ' + esc(p.reference) + '</span>' : '') + (p.preuve ? '<br><button type="button" class="btn sm" data-preuve="' + esc(p.preuve) + '" style="min-height:32px;margin-top:4px">📎 Voir la preuve</button>' : '') + '</span><b>' + fmtn(p.montant) + '</b></div>'; }).join('') || '<div class="mut">Aucun paiement pour l’instant.</div>') +
     '<div class="line tot"><span>Reste à payer</span><span style="color:' + (reste ? 'var(--bad)' : 'var(--ok)') + '">' + fmt(reste) + '</span></div>' +
-    (reste ? '<form id="fp" style="margin-top:8px"><div class="grid2"><label>Montant<input name="montant" type="number" inputmode="numeric" value="' + reste + '" required></label><label>Mode<select name="mode" id="pmode">' + MODES.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join('') + '</select></label></div><label id="pref" hidden>Référence de la transaction Orange Money<input name="reference" placeholder="Ex. PP231117.1234.A12345"></label><button class="btn or" type="submit">Enregistrer le paiement</button></form>' : '') +
+    (reste ? '<form id="fp" style="margin-top:8px"><div class="grid2"><label>Montant<input name="montant" type="number" inputmode="numeric" value="' + reste + '" required></label><label>Mode<select name="mode" id="pmode">' + MODES.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join('') + '</select></label></div><label id="pref" hidden>Référence de la transaction Orange Money<input name="reference" placeholder="Ex. PP231117.1234.A12345"></label><label>📎 Capture du dépôt ou photo du reçu <span class="mut">(facultatif)</span><input name="preuve" type="file" accept="image/*"></label><button class="btn or" type="submit">Enregistrer le paiement</button></form>' : '') +
     '<button class="btn sm" id="recu" style="width:100%;margin-top:10px">🧾 Reçu en image (à envoyer au client)</button></section>' : '<a class="btn wa" target="_blank" rel="noopener" href="' + waLink(tel, devisTexte(c)) + '">Envoyer le devis sur WhatsApp</a>') +
     (interieur(c) && !dv ? '<form id="fi" class="card"><h2>Envoi à l’intérieur du pays</h2><div class="grid2"><label>Gare<input name="gare" value="' + esc(c.gare || '') + '" placeholder="Ex. Madina"></label><label>Transport (GNF)<input name="transport_frais" type="number" value="' + esc(c.transport_frais || '') + '"></label></div><div class="grid2"><label>Nom du chauffeur<input name="chauffeur_nom" value="' + esc(c.chauffeur_nom || '') + '"></label><label>Tél. du chauffeur<input name="chauffeur_tel" inputmode="tel" value="' + esc(c.chauffeur_tel || '') + '"></label></div><button class="btn sm" type="submit" style="width:100%">Enregistrer l’envoi</button></form>' : '') +
     '<section class="card"><h2>Photos (' + ph.length + ')</h2><div id="phs" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + ph.map(function (p, i) { return '<div style="position:relative"><img data-ph="' + i + '" alt="' + esc(p.type || 'photo') + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--bg)"><span class="mut" style="font-size:11px">' + esc(p.type || '') + '</span></div>'; }).join('') + '</div>' +
@@ -493,15 +505,17 @@ function vCommande(id) {
     '<section class="card"><h2>Note de l’atelier</h2><form id="fn"><textarea name="details" placeholder="Couleur, prénom, police, photo reçue…">' + esc(c.details || '') + '</textarea><button class="btn sm" type="submit" style="width:100%">Enregistrer la note</button></form></section>' +
     (isPatron() ? '<button class="btn danger" id="del">Supprimer ' + (dv ? 'le devis' : 'la commande') + '</button>' : '');
   render(page({ title: dv ? 'Devis' : 'Commande', back: 1, body: body, nav: 'cmd' }));
-  async function setSt(st) { await act(function () { return DB.update('commandes', c.id, { statut: st }); }, 'Statut : ' + STL[st]); S.justSt = c.id; vCommande(id); }
+  async function setSt(st) { await act(async function () { var extra = await stockSelonStatut(c, st); return DB.update('commandes', c.id, Object.assign({ statut: st }, extra)); }, 'Statut : ' + STL[st] + (st === 'livree' ? ' · stock mis à jour' : '')); S.justSt = c.id; vCommande(id); }
   if (q('#confirm')) q('#confirm').onclick = function () { setSt('confirmee'); };
+  if (q('#ftel')) q('#ftel').onsubmit = async function (e) { e.preventDefault(); var fd = formData(e.target), t = telWa(fd.tel); if (!t || t.length < 11) return toast('Numéro incomplet'); var up = { client_tel: t }; if (fd.nom && fd.nom.trim()) up.client_nom = fd.nom.trim(); await act(function () { return DB.update('commandes', c.id, up); }, 'Numéro enregistré'); S.justSt = c.id; vCommande(id); };
   if (q('#next')) q('#next').onclick = function () { setSt(next[0]); };
   qa('[data-st]').forEach(function (b) { b.onclick = function () { setSt(b.dataset.st); }; });
-  if (q('#accept')) q('#accept').onclick = async function () { await act(async function () { await DB.update('commandes', c.id, { type: 'commande', statut: 'nouvelle' }); await baisserStock(c.articles); }, 'Devis accepté : c’est une commande'); vCommande(id); };
+  if (q('#accept')) q('#accept').onclick = async function () { await act(async function () { await DB.update('commandes', c.id, { type: 'commande', statut: 'nouvelle' }); }, 'Devis accepté : c’est une commande'); vCommande(id); };
   if (q('#pmode')) q('#pmode').onchange = function (e) { q('#pref').hidden = e.target.value !== 'orange_money'; };
-  if (q('#fp')) q('#fp').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (n(d.montant) <= 0) return toast('Montant invalide'); await act(function () { return DB.insert('paiements', { commande_id: c.id, montant: n(d.montant), mode: d.mode, reference: d.mode === 'orange_money' && d.reference ? d.reference.trim() : null, date: new Date().toISOString() }); }, 'Paiement enregistré'); S.justPaid = c.id; vCommande(id); };
+  if (q('#fp')) q('#fp').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (n(d.montant) <= 0) return toast('Montant invalide'); var bt = e.target.querySelector('button[type=submit]'); bt.disabled = true; bt.textContent = 'Enregistrement…'; var preuve = await envoiPreuve(e.target.preuve.files[0]); await act(function () { return DB.insert('paiements', { commande_id: c.id, montant: n(d.montant), mode: d.mode, reference: d.mode === 'orange_money' && d.reference ? d.reference.trim() : null, preuve: preuve, date: new Date().toISOString() }); }, 'Paiement enregistré'); S.justPaid = c.id; vCommande(id); };
   if (q('#recu')) q('#recu').onclick = function () { recuImage(c); };
   if (q('#recu2')) q('#recu2').onclick = function () { recuImage(c); };
+  qa('[data-preuve]').forEach(function (b) { b.onclick = function () { voirPreuve(b.dataset.preuve); }; });
   if (q('#fi')) q('#fi').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); await act(function () { return DB.update('commandes', c.id, { gare: d.gare || null, transport_frais: n(d.transport_frais), chauffeur_nom: d.chauffeur_nom || null, chauffeur_tel: d.chauffeur_tel || null }); }, 'Envoi enregistré'); vCommande(id); };
   q('#fn').onsubmit = async function (e) { e.preventDefault(); await act(function () { return DB.update('commandes', c.id, { details: formData(e.target).details }); }, 'Note enregistrée'); };
   if (q('#del')) q('#del').onclick = async function () { if (!confirm('Supprimer définitivement ' + c.numero + ' et ses paiements ?')) return; await act(function () { return DB.remove('commandes', c.id); }, 'Supprimé'); S.data.paiements = S.data.paiements.filter(function (p) { return p.commande_id !== c.id; }); location.hash = '#/commandes'; };
@@ -559,9 +573,29 @@ function recuImage(c) {
     }, 'image/png');
   }
 }
+function sansAccent(x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+function produitStock(a) {
+  if (a.produit_id) return findById('produits', a.produit_id);
+  var t = sansAccent(a.nom), L = S.data.produits;
+  function par(mot) { return L.filter(function (p) { return p.suivi_stock && sansAccent(p.nom).indexOf(mot) >= 0; })[0] || null; }
+  if (/carnet|pochette|portefeuille/.test(t)) return null;
+  if (t.indexOf('diamant') >= 0) return par('diamant');
+  if (t.indexOf('gourde') >= 0) return L.filter(function (p) { return p.suivi_stock && sansAccent(p.nom).indexOf('gourde') >= 0 && sansAccent(p.nom).indexOf('diamant') < 0; })[0] || null;
+  if (t.indexOf('coque') >= 0) return par('coque');
+  var best = null, sc = 0;
+  L.forEach(function (p) { if (!p.suivi_stock) return; var m = sansAccent(p.nom).split(/[^a-z0-9]+/).filter(function (w) { return w.length > 3 && t.indexOf(w.replace(/s$/, '')) >= 0; }).length; if (m > sc) { sc = m; best = p; } });
+  return best;
+}
 async function baisserStock(arts, signe) {
   signe = signe || -1;
-  for (var i = 0; i < (arts || []).length; i++) { var a = arts[i]; var p = a.produit_id ? findById('produits', a.produit_id) : null; if (p && p.suivi_stock) await DB.update('produits', p.id, { stock: Math.max(0, n(p.stock) + signe * (n(a.qte) || 1)) }); }
+  for (var i = 0; i < (arts || []).length; i++) { var a = arts[i]; var p = produitStock(a); if (p && p.suivi_stock) { p = findById('produits', p.id); await DB.update('produits', p.id, { stock: Math.max(0, n(p.stock) + signe * (n(a.qte) || 1)) }); } }
+}
+// Le stock sort quand la commande est livrée (une seule fois), et revient si on annule ou si on revient en arrière
+async function stockSelonStatut(c, st) {
+  if (isDevis(c)) return {};
+  if (st === 'livree' && !c.stock_sorti) { await baisserStock(c.articles, -1); return { stock_sorti: true }; }
+  if (st !== 'livree' && c.stock_sorti) { await baisserStock(c.articles, +1); return { stock_sorti: false }; }
+  return {};
 }
 
 /* ---- Nouvelle vente / modification / devis ---- */
@@ -652,15 +686,14 @@ function vVente() {
       await act(async function () {
         if (V.editId) {
           var o = V.orig; c = o;
-          if (!isDevis(o)) { await baisserStock(o.articles, +1); }
+          if (o.stock_sorti) { await baisserStock(o.articles, +1); }
           await DB.update('commandes', o.id, row);
-          if (!isDevis(o)) await baisserStock(V.articles, -1);
+          if (o.stock_sorti) await baisserStock(V.articles, -1);
         } else {
           row.numero = numero(); row.statut = 'nouvelle'; row.type = V.type;
           c = await DB.insert('commandes', row);
           if (V.type !== 'devis') {
             if (n(V.acompte) > 0) await DB.insert('paiements', { commande_id: c.id, montant: n(V.acompte), mode: V.mode, reference: V.mode === 'orange_money' && V.reference ? V.reference : null, date: new Date().toISOString() });
-            await baisserStock(V.articles, -1);
           }
         }
       }, V.editId ? 'Modifications enregistrées ✓' : (V.type === 'devis' ? 'Devis enregistré ✓' : 'Vente enregistrée ✓'));
@@ -692,13 +725,13 @@ function vArgent() {
   if (!isPatron()) return denied();
   var p = periode(perArg); var b = bilan(p[0], p[1]); var s = soldesTotaux();
   var mv = [];
-  S.data.paiements.filter(function (x) { return inPeriod(x.date, p[0], p[1]); }).forEach(function (x) { var c = findById('commandes', x.commande_id); mv.push({ d: x.date, plus: true, m: x.montant, t: c ? c.client_nom + ' · ' + title(c) : 'Paiement', s: MODEL[x.mode] + (x.reference ? ' · ' + x.reference : ''), h: c ? '#/commande/' + c.id : '' }); });
+  S.data.paiements.filter(function (x) { return inPeriod(x.date, p[0], p[1]); }).forEach(function (x) { var c = findById('commandes', x.commande_id); mv.push({ d: x.date, plus: true, m: x.montant, t: c ? c.client_nom + ' · ' + title(c) : (x.note || 'Entrée d’argent'), s: MODEL[x.mode] + (x.reference ? ' · ' + x.reference : '') + (x.preuve ? ' · 📎 preuve' : ''), h: c ? '#/commande/' + c.id : '' }); });
   S.data.depenses.filter(function (x) { return inPeriod(x.date, p[0], p[1]); }).forEach(function (x) { mv.push({ d: x.date, plus: false, m: x.montant, t: DEPL[x.categorie] + (x.note ? ' · ' + x.note : ''), s: MODEL[x.mode], id: x.id }); });
   mv.sort(function (a, b2) { return String(b2.d).localeCompare(String(a.d)); });
   var body = '<div class="chips">' + [['jour', "Aujourd'hui"], ['semaine', 'Semaine'], ['mois', 'Mois']].map(function (x) { return '<button data-p="' + x[0] + '" class="' + (perArg === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>' +
     '<section class="hero"><small style="color:#D6E4F5">Encaissé − dépenses (' + p[2] + ')</small><div class="big">' + fmt(b.solde) + '</div><div class="grid2"><div class="tile"><small>Encaissé</small><b>' + fmt(b.encaisse) + '</b></div><div class="tile"><small>Dépenses</small><b>' + fmt(b.depenses) + '</b></div></div></section>' +
     '<section class="card"><h2>Caisse totale</h2><div class="grid3"><div class="mini"><small>Espèces</small><b>' + fmtn(s.esp) + '</b></div><div class="mini" style="background:var(--cream)"><small style="color:#6B4A06">Orange Money</small><b>' + fmtn(s.om) + '</b></div><a class="mini" href="#/dettes" style="text-decoration:none;color:inherit"><small>À encaisser ›</small><b>' + fmtn(s.aEnc) + '</b></a></div></section>' +
-    '<div class="grid2"><a class="btn" href="#/depense">− Dépense</a><a class="btn navy" href="#/bilan/' + perArg + '">Bilan</a></div><a class="btn sm" href="#/dettes" style="width:100%">Qui me doit de l’argent ?</a>' +
+    '<div class="grid2"><a class="btn or" href="#/encaisser">+ Encaisser</a><a class="btn" href="#/depense">− Dépense</a></div><a class="btn navy" href="#/bilan/' + perArg + '" style="width:100%">Bilan</a><a class="btn sm" href="#/dettes" style="width:100%">Qui me doit de l’argent ?</a>' +
     '<section class="card"><h2>Mouvements</h2>' + (mv.map(function (m) { return '<' + (m.h ? 'a href="' + m.h + '"' : 'div') + ' class="row"' + (m.id ? ' data-dep="' + m.id + '"' : '') + '><span class="ico" style="background:' + (m.plus ? '#E3F2E8' : '#FDE2E2') + '">' + (m.plus ? '↓' : '↑') + '</span><div class="grow"><span class="t">' + esc(m.t) + '</span><span class="mut">' + dshort(m.d) + ' · ' + esc(m.s) + '</span></div><b style="color:' + (m.plus ? 'var(--ok)' : 'var(--bad)') + '">' + (m.plus ? '+' : '−') + fmtn(m.m) + '</b></' + (m.h ? 'a' : 'div') + '>'; }).join('') || '<div class="empty">Aucun mouvement.</div>') + '</section>';
   render(page({ title: 'Argent', body: body, nav: 'argent' }));
   qa('[data-p]').forEach(function (b2) { b2.onclick = function () { perArg = b2.dataset.p; vArgent(); }; });
@@ -716,6 +749,45 @@ function vDettes() {
         x.cmds.map(function (c) { return '<a href="#/commande/' + c.id + '" class="mut" style="text-decoration:none">' + esc(c.numero) + ' · ' + esc(title(c)) + ' · ' + STL[c.statut] + ' · reste ' + fmtn(resteFor(c)) + ' ›</a>'; }).join('') +
         (x.tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(x.tel, msg) + '">Relancer sur WhatsApp</a>' : '') + '</div>'; }).join('') || '<div class="empty">Personne ne te doit d’argent 🎉</div>') + '</section>';
   render(page({ title: 'Qui me doit', back: 1, body: body, nav: 'argent' }));
+}
+async function envoiPreuve(file) {
+  if (!file || !file.size) return null;
+  if (S.mode === 'sb' && !navigator.onLine) { toast('Pas d’internet : la preuve n’est pas envoyée, le paiement oui'); return null; }
+  try { var blob = await compress(file, S.mode === 'demo' ? 700 : 1600); return await DB.uploadPhoto('paiements', blob); } catch (e) { toast('Preuve non envoyée : ' + (e.message || e)); return null; }
+}
+async function voirPreuve(path) {
+  try { var u = (await DB.photoUrls([path]))[path]; if (!u) return toast('Preuve indisponible (internet ?)');
+    var w = document.createElement('div'); w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px';
+    w.innerHTML = '<img src="' + u + '" style="max-width:100%;max-height:80vh;object-fit:contain"><button class="btn" style="width:auto;padding:0 24px">Fermer</button>';
+    w.onclick = function () { w.remove(); }; document.body.appendChild(w);
+  } catch (e) { toast('Preuve indisponible'); }
+}
+function vEncaisser() {
+  if (!isPatron()) return denied();
+  var dues = vraies().filter(function (c) { return resteFor(c) > 0; }).sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+  var body = '<form id="fe" class="card">' +
+    '<label>C’est pour<select name="pour" id="epour"><option value="">Une commande… (choisir plus bas)</option><option value="autre">Autre entrée d’argent (sans commande)</option><option value="fond">Fond de caisse : argent déjà dans la caisse</option></select></label>' +
+    '<label id="ecmd">Commande<select name="commande_id"><option value="">— Choisir —</option>' + dues.map(function (c) { return '<option value="' + c.id + '" data-reste="' + resteFor(c) + '">' + esc(c.client_nom) + ' · ' + esc(c.numero) + ' · reste ' + fmtn(resteFor(c)) + '</option>'; }).join('') + '</select></label>' +
+    '<label>Montant (GNF)<input name="montant" type="number" inputmode="numeric" required></label>' +
+    '<label>Reçu en<select name="mode" id="emode">' + MODES.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join('') + '</select></label>' +
+    '<label id="eref" hidden>Référence Orange Money<input name="reference" placeholder="Ex. PP231117.1234.A12345"></label>' +
+    '<label>📎 Capture du dépôt ou photo du reçu <span class="mut">(facultatif)</span><input name="preuve" type="file" accept="image/*"></label>' +
+    '<label>Note<input name="note" placeholder="Ex. avance de Fatou, monnaie du matin…"></label>' +
+    '<button class="btn or" type="submit">Enregistrer l’entrée d’argent</button></form>' +
+    '<p class="mut" style="padding:0 4px">La « Caisse totale » se calcule toute seule : elle additionne tout l’argent reçu (ventes, paiements, entrées) et enlève les dépenses. Pour la mettre juste la première fois, choisis « Fond de caisse » et tape l’argent que tu as déjà.</p>';
+  render(page({ title: 'Encaisser de l’argent', back: 1, body: body, nav: 'argent' }));
+  function tog() { var v = q('#epour').value; q('#ecmd').hidden = v !== ''; }
+  q('#epour').onchange = tog; tog();
+  q('[name=commande_id]').onchange = function (e) { var o = e.target.selectedOptions[0]; if (o && o.dataset.reste) q('[name=montant]').value = o.dataset.reste; };
+  q('#emode').onchange = function (e) { q('#eref').hidden = e.target.value !== 'orange_money'; };
+  q('#fe').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (n(d.montant) <= 0) return toast('Montant invalide');
+    var cid = d.pour === '' ? Number(d.commande_id) || null : null; if (d.pour === '' && !cid) return toast('Choisis la commande, ou « Autre entrée »');
+    var btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Enregistrement…';
+    var preuve = await envoiPreuve(e.target.preuve.files[0]);
+    var note = d.pour === 'fond' ? 'Fond de caisse' + (d.note ? ' · ' + d.note : '') : (d.note || (d.pour === 'autre' ? 'Entrée d’argent' : null));
+    await act(function () { return DB.insert('paiements', { commande_id: cid, montant: n(d.montant), mode: d.mode, reference: d.mode === 'orange_money' && d.reference ? d.reference.trim() : null, note: note, preuve: preuve, date: new Date().toISOString() }); }, 'Argent enregistré');
+    if (cid) { S.justPaid = cid; location.hash = '#/commande/' + cid; } else location.hash = '#/argent';
+  };
 }
 function vDepense() {
   if (!isPatron()) return denied();
@@ -869,15 +941,11 @@ function vMenu() {
   if (S.role === 'livreur') it = [['#/', '🚚', 'Mes livraisons'], ['#/commandes', '🛍️', 'Commandes']];
   it.push(['../', '🌐', 'Voir le site']);
   var body = '<section class="card">' + it.map(function (x) { return '<a class="row" href="' + x[0] + '"><span class="ico">' + x[1] + '</span><span class="grow t">' + x[2] + '</span><span class="mut">›</span></a>'; }).join('') + '</section>' +
-    (S.role !== 'livreur' ? '<section class="card"><h2>🧪 Tester comme un client</h2><p class="mut" style="margin:0 0 10px">Fais une vraie commande avec ton numéro, puis suis-la ici. Supprime-la à la fin.</p>' +
-      '<a class="btn or" style="width:100%" target="_blank" rel="noopener" href="../commande.html#gourde">1. Passer une commande avec photo</a>' +
-      '<a class="btn navy" style="width:100%;margin-top:8px" href="#/commandes">2. La voir et la confirmer ici</a>' +
-      '<a class="btn sm" style="width:100%;margin-top:8px" target="_blank" rel="noopener" href="../suivi.html">3. Ouvrir la page de suivi du client</a></section>' : '') +
     '<section class="card"><h2>Sécurité de ce téléphone</h2><p class="mut" style="margin:0 0 10px">' + (pinSet() ? 'Un code PIN protège l’application sur ce téléphone.' : 'Ajoute un code PIN : il sera demandé à l’ouverture.') + '</p><form id="fpin" style="gap:8px"><div class="grid2"><input name="a" type="password" inputmode="numeric" maxlength="8" placeholder="Nouveau PIN" autocomplete="new-password"><input name="b" type="password" inputmode="numeric" maxlength="8" placeholder="Retape-le" autocomplete="new-password"></div><button class="btn sm" type="submit" style="width:100%">' + (pinSet() ? 'Changer le PIN' : 'Créer le PIN') + '</button></form>' + (pinSet() ? '<button class="btn sm danger" id="nopin" style="width:100%;margin-top:8px">Retirer le PIN</button>' : '') +
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.5</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.7</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
   q('#fpin').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (!/^\d{4,8}$/.test(d.a)) return toast('Le PIN doit faire 4 à 8 chiffres'); if (d.a !== d.b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(d.a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
@@ -925,6 +993,7 @@ async function route() {
   if (r === 'argent') return vArgent();
   if (r === 'dettes') return vDettes();
   if (r === 'depense') return vDepense();
+  if (r === 'encaisser') return vEncaisser();
   if (r === 'bilan') return vBilan(h[1]);
   if (r === 'produits') return vProduits();
   if (r === 'produit') return vProduitEdit(h[1]);
