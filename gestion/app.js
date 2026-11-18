@@ -578,7 +578,7 @@ function produitStock(a) {
   if (a.produit_id) return findById('produits', a.produit_id);
   var t = sansAccent(a.nom), L = S.data.produits;
   function par(mot) { return L.filter(function (p) { return p.suivi_stock && sansAccent(p.nom).indexOf(mot) >= 0; })[0] || null; }
-  if (/carnet|pochette|portefeuille/.test(t)) return null;
+  if (/carnet|pochette|portefeuille/.test(t)) return par('pochette');
   if (t.indexOf('diamant') >= 0) return par('diamant');
   if (t.indexOf('gourde') >= 0) return L.filter(function (p) { return p.suivi_stock && sansAccent(p.nom).indexOf('gourde') >= 0 && sansAccent(p.nom).indexOf('diamant') < 0; })[0] || null;
   if (t.indexOf('coque') >= 0) return par('coque');
