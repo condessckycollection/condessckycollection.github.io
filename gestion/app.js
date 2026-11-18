@@ -941,13 +941,16 @@ function vMenu() {
   if (S.role === 'livreur') it = [['#/', '🚚', 'Mes livraisons'], ['#/commandes', '🛍️', 'Commandes']];
   it.push(['../', '🌐', 'Voir le site']);
   var body = '<section class="card">' + it.map(function (x) { return '<a class="row" href="' + x[0] + '"><span class="ico">' + x[1] + '</span><span class="grow t">' + x[2] + '</span><span class="mut">›</span></a>'; }).join('') + '</section>' +
+    (S.role !== 'livreur' ? '<section class="card"><h2>🔔 Alertes de commande</h2><p class="mut" style="margin:0 0 10px">' + (window.Notification && Notification.permission === 'granted' ? 'Activées sur ce téléphone : un son, une vibration et une notification à chaque nouvelle commande.' : 'Reçois un son, une vibration et une notification à chaque nouvelle commande du site.') + '</p>' + (window.Notification && Notification.permission !== 'granted' ? '<button class="btn or" id="alertes" style="width:100%">Activer les alertes</button>' : '<button class="btn sm" id="testalerte" style="width:100%">Tester le son</button>') + '</section>' : '') +
     '<section class="card"><h2>Sécurité de ce téléphone</h2><p class="mut" style="margin:0 0 10px">' + (pinSet() ? 'Un code PIN protège l’application sur ce téléphone.' : 'Ajoute un code PIN : il sera demandé à l’ouverture.') + '</p><form id="fpin" style="gap:8px"><div class="grid2"><input name="a" type="password" inputmode="numeric" maxlength="8" placeholder="Nouveau PIN" autocomplete="new-password"><input name="b" type="password" inputmode="numeric" maxlength="8" placeholder="Retape-le" autocomplete="new-password"></div><button class="btn sm" type="submit" style="width:100%">' + (pinSet() ? 'Changer le PIN' : 'Créer le PIN') + '</button></form>' + (pinSet() ? '<button class="btn sm danger" id="nopin" style="width:100%;margin-top:8px">Retirer le PIN</button>' : '') +
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.7</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.8</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
+  if (q('#alertes')) q('#alertes').onclick = function () { bip(); Notification.requestPermission().then(function (r) { toast(r === 'granted' ? 'Alertes activées ✓' : 'Alertes refusées : autorise les notifications dans les réglages du téléphone'); vMenu(); }); };
+  if (q('#testalerte')) q('#testalerte').onclick = function () { bip(); try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch (e) {} };
   q('#fpin').onsubmit = async function (e) { e.preventDefault(); var d = formData(e.target); if (!/^\d{4,8}$/.test(d.a)) return toast('Le PIN doit faire 4 à 8 chiffres'); if (d.a !== d.b) return toast('Les deux codes ne sont pas pareils'); lsSet('condesscky_pin', await sha(d.a)); toast('PIN enregistré sur ce téléphone'); vMenu(); };
   if (q('#nopin')) q('#nopin').onclick = function () { try { localStorage.removeItem('condesscky_pin'); } catch (e) {} toast('PIN retiré'); vMenu(); };
   if (q('#outall')) q('#outall').onclick = async function () { if (!confirm('Déconnecter TOUS les téléphones, y compris celui-ci ? Il faudra se reconnecter avec le mot de passe.')) return; await DB.logout(true); S.user = null; route(); };
@@ -978,6 +981,21 @@ async function vSync() {
 }
 
 /* ---------------- routeur ---------------- */
+// ---- Alerte quand une nouvelle commande arrive
+function bip() { try { var A = window.AudioContext || window.webkitAudioContext, ctx = new A(); [0, .25].forEach(function (t) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.25, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + t + .2); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + .22); }); } catch (e) {} }
+function alerteNouvelles() {
+  if (!S.data || !S.user || S.role === 'livreur') return;
+  var ids = vraies().filter(function (c) { return c.statut === 'nouvelle'; }).map(function (c) { return c.id; });
+  var vues = lsGet('condesscky_vues', null);
+  if (vues === null) { lsSet('condesscky_vues', ids); return; }
+  var neuves = ids.filter(function (i) { return vues.indexOf(i) < 0 && i > 0; });
+  lsSet('condesscky_vues', ids.concat(vues.filter(function (i) { return ids.indexOf(i) < 0; })).slice(-300));
+  if (!neuves.length) return;
+  var c = findById('commandes', neuves[0]), txt = neuves.length > 1 ? neuves.length + ' nouvelles commandes à valider' : 'Nouvelle commande : ' + (c ? title(c) : '');
+  bip(); try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch (e) {}
+  toast('🛒 ' + txt);
+  try { if (window.Notification && Notification.permission === 'granted' && navigator.serviceWorker) navigator.serviceWorker.ready.then(function (r) { r.showNotification('Condesscky Collection', { body: txt, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'commande', renotify: true, data: { url: location.href.split('#')[0] + (c ? '#/commande/' + c.id : '#/') } }); }); } catch (e) {}
+}
 async function route() {
   if (!S.user) return vLogin();
   if (locked) return vPin();
@@ -1026,6 +1044,8 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { up
   }
   if (S.user) setRole();
   route();
-  if (S.mode === 'sb') setInterval(function () { if (S.user && !locked && document.visibilityState === 'visible' && navigator.onLine) DB.flush().then(function () { return queue().length ? null : DB.load(); }).then(function () { var h = location.hash; if (h === '#/' || h === '' || h === '#/commandes') route(); }).catch(function () {}); }, 120000);
+  if (S.mode === 'sb') setTimeout(alerteNouvelles, 1500);
+  if (S.mode === 'sb') setInterval(function () { if (S.user && !locked && document.visibilityState !== 'visible' && navigator.onLine) DB.load().then(alerteNouvelles).catch(function () {}); }, 60000);
+  if (S.mode === 'sb') setInterval(function () { if (S.user && !locked && document.visibilityState === 'visible' && navigator.onLine) DB.flush().then(function () { return queue().length ? null : DB.load(); }).then(function () { alerteNouvelles(); var h = location.hash; if (h === '#/' || h === '' || h === '#/commandes') route(); }).catch(function () {}); }, 45000);
 })();
 })();
