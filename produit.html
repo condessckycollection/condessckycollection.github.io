@@ -1371,7 +1371,7 @@ window.ENTREPRISE = {
       set('cc_orders', [{ num: num, code: code4, date: d.toISOString(), produit: P.nom, total: total() }].concat(get('cc_orders') || []).slice(0, 10));
       btn.innerHTML = lab; btn.style.pointerEvents = '';
       var dn = $('#pdone'); dn.hidden = false;
-      dn.innerHTML = '<strong>Merci ! Commande n° ' + esc(num) + '</strong><br>Si WhatsApp ne s’est pas ouvert, <a href="' + link + '" target="_blank" rel="noopener">touchez ici pour envoyer la commande</a>.<br><a href="' + suiviUrl + '">Suivre ma commande</a>';
+      dn.innerHTML = '<strong>Merci ! Commande n° ' + esc(num) + '</strong><br>Si WhatsApp ne s’est pas ouvert, <a href="' + link + '" target="_blank" rel="noopener">touchez ici pour envoyer la commande</a>.<br>Votre code de suivi : <strong>' + code4 + '</strong> · <a href="' + suiviUrl + '">Suivre ma commande</a>';
       try { if (win) win.location.href = link; else window.location.href = link; } catch (e4) { window.location.href = link; }
     }
     $('#ptxt').addEventListener('input', function (e) { S.txt = e.target.value.slice(0, P.champ ? 40 : (P.nomMax || 18)); live(); });

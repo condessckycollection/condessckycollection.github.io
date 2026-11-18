@@ -1385,7 +1385,7 @@ window.ENTREPRISE = {
       try {
         var r = await fetch(DBC.url + '/rest/v1/rpc/suivi_commande', { method: 'POST', headers: { apikey: DBC.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_numero: num, p_code: code }) });
         var c = r.ok ? await r.json() : null;
-        if (!c) { R.innerHTML = '<div class="note">Commande introuvable. Vérifiez le numéro et les 4 chiffres. Si vous venez de commander, réessayez dans quelques minutes ou demandez-nous sur WhatsApp.</div>'; return; }
+        if (!c) { R.innerHTML = '<div class="note">Commande introuvable. Vérifiez le numéro (ex. CC-261118-4507) et le code de 4 chiffres écrit à la fin de votre message WhatsApp, après « code ». Le plus simple : touchez le lien « Suivre ma commande » dans votre message. Besoin d’aide ? Écrivez-nous sur WhatsApp.</div>'; return; }
         var idx = ETAPES.map(function (x) { return x[0]; }).indexOf(c.statut), reste = Math.max(0, (c.total || 0) - (c.paye || 0));
         var h = '<div class="card" style="gap:6px;border:2px solid var(--navy)"><span class="eyebrow">Bonjour ' + esc(c.prenom || '') + '</span><h2 style="margin:0">Commande ' + esc(c.numero) + '</h2>' +
           '<p style="margin:0">' + (c.articles || []).map(function (a) { return (+a.qte > 1 ? a.qte + ' × ' : '') + esc(a.nom); }).join(', ') + '</p>' +
