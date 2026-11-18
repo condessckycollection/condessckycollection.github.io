@@ -492,6 +492,15 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
   .mstrip a span { font-size: 24px; line-height: 1; }
   .mstrip a[aria-current="page"] { border-color: var(--orange); background: #FFF6E8; color: var(--navy); transform: none; }
 }
+@media (max-width: 860px) {
+  .topbar .wrap { padding-block: 5px; font-size: 12px; gap: 2px 12px; }
+  .topbar .info { display: none; }
+  .site-head .wrap { min-height: 56px !important; }
+  .brand img { height: 40px !important; }
+  .mstrip { padding: 6px 12px 8px; gap: 8px; }
+  .mstrip a { width: 70px; min-height: 58px; padding: 6px 4px; font-size: 11px; border-radius: 12px; }
+  .mstrip a span { font-size: 19px; }
+}
 </style>
 <script>window.CC_DB = { url: "https://worrjkhguuuzjnvsnjjm.supabase.co", key: "sb_publishable_FJSGc-9JMhWWxwrO3paipA_EPvwA90Y" };</script>
 </head>
@@ -1224,8 +1233,8 @@ window.ENTREPRISE = {
       s.value = String(O.opt != null && O.opt >= 0 && O.opt < p.option.valeurs.length ? O.opt : -1);
     }
     var PAY = {
-      conakry: [['cash', 'Espèces à la livraison', 'Vous payez au livreur quand vous recevez votre création.'], ['om-liv', 'Orange Money à la livraison', 'Vous payez par Orange Money devant le livreur.'], ['om-now', 'Payer maintenant par Orange Money', 'Votre commande passe en priorité.']],
-      interieur: [['om-depot', 'Dépôt Orange Money quand le colis est prêt', 'Nous vous envoyons la photo du colis prêt, puis vous faites le dépôt.'], ['om-now', 'Payer maintenant par Orange Money', 'Votre commande passe en priorité.']]
+      conakry: [['cash', 'Espèces à la livraison', 'Vous payez au livreur quand vous recevez votre création.'], ['om-liv', 'Orange Money à la livraison', 'Vous payez par Orange Money devant le livreur.']],
+      interieur: [['om-depot', 'Dépôt Orange Money quand le colis est prêt', 'Nous vous envoyons la photo du colis prêt, puis vous faites le dépôt.']]
     };
     function drawPay() {
       var z = zone(), cur = pay();

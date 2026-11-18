@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://condessckycollection.github.io/sitemap.xml

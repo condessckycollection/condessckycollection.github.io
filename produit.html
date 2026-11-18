@@ -494,6 +494,15 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
   .mstrip a span { font-size: 24px; line-height: 1; }
   .mstrip a[aria-current="page"] { border-color: var(--orange); background: #FFF6E8; color: var(--navy); transform: none; }
 }
+@media (max-width: 860px) {
+  .topbar .wrap { padding-block: 5px; font-size: 12px; gap: 2px 12px; }
+  .topbar .info { display: none; }
+  .site-head .wrap { min-height: 56px !important; }
+  .brand img { height: 40px !important; }
+  .mstrip { padding: 6px 12px 8px; gap: 8px; }
+  .mstrip a { width: 70px; min-height: 58px; padding: 6px 4px; font-size: 11px; border-radius: 12px; }
+  .mstrip a span { font-size: 19px; }
+}
 </style>
 <script>window.CC_DB = { url: "https://worrjkhguuuzjnvsnjjm.supabase.co", key: "sb_publishable_FJSGc-9JMhWWxwrO3paipA_EPvwA90Y" };</script>
 </head>
@@ -570,7 +579,7 @@ details.more[open] { padding-bottom: 14px; display: flex; flex-direction: column
       <div class="field"><span class="field-label">Quantité</span>
         <div class="qty"><button type="button" data-q="-1" aria-label="Moins">−</button><output id="qty" aria-live="polite">1</output><button type="button" data-q="1" aria-label="Plus">+</button></div>
       </div>
-      <div class="sum-lines" style="border-top:1px solid var(--line)"><div class="sum-total" style="border:none;padding:0"><span>Total</span><span id="ptotal"></span></div><span class="muted" style="font-size:13px" id="ptotal-note">Livraison en plus. Votre photo part avec la commande.</span></div>
+      <div class="sum-lines" style="border-top:1px solid var(--line)"><div class="sum-total" style="border:none;padding:0"><span>Total</span><span id="ptotal"></span></div><span class="muted" style="font-size:13px" id="ptotal-note">Livraison à Conakry : + 20 000 GNF. Intérieur : transport payé au chauffeur.</span></div>
       <div class="field" id="pquartier-field"><label class="field-label" for="pquartier">Votre quartier <span>(pour la livraison)</span></label><input class="input" id="pquartier" placeholder="Ex. Kipé, Lambanyi, Matoto… ou votre ville" autocomplete="off"><span class="err" id="pquartier-err" hidden>Indiquez votre quartier : le livreur en a besoin.</span></div>
       <div class="note blue" id="pdone" hidden></div>
       <div class="pactions">
@@ -1232,7 +1241,7 @@ window.ENTREPRISE = {
       $('#ptxt-field').hidden = !!P.fixe || !!P.sansNom || !!(P.champ && P.champ.parOption && S.opt < 0); $('#pperso-wrap').hidden = !!P.fixe;
       var pm = $('.pictos.mini'); if (pm) pm.hidden = !!P.fixe;
       fill('#ap-help', P.champ ? '☝️ Glissez la photo avec le doigt pour bien la placer.' : '☝️ Glissez la photo avec le doigt pour bien la placer. Tapez le prénom plus bas : il s’écrit sur le produit.');
-      fill('#ptotal-note', P.fixe ? (P.fixeNote || 'Livraison en plus. Modèle vendu tel quel, choisissez seulement la couleur.') : P.sansPhoto ? 'Livraison en plus. Pas de photo : seulement le prénom.' : 'Livraison en plus. Votre photo part avec la commande.');
+      fill('#ptotal-note', P.fixe ? (P.fixeNote || 'Livraison à Conakry : + ' + fmt(CC.livraisonConakry) + '. Modèle vendu tel quel, choisissez seulement la couleur.') : P.sansPhoto ? 'Livraison à Conakry : + ' + fmt(CC.livraisonConakry) + '. Pas de photo : seulement le prénom.' : 'Livraison à Conakry : + 20 000 GNF. Intérieur : transport payé au chauffeur.');
       var tip = $('#photo-tips'); if (tip) tip.hidden = !!P.fixe || !!P.sansPhoto;
       var pc = $('#pconcept'); if (pc) { pc.hidden = !P.conception; if (P.conception) pc.href = wa('Bonjour Condesscky Collection, j’ai déjà ma conception pour : ' + P.nom + '. Je vous l’envoie (PDF ou image) juste après ce message.'); }
       fill('#pperso', P.persoTxt ? esc(P.persoTxt) : P.sansPhoto ? 'Indiquez seulement le prénom à écrire' + (P.nomMax ? ' (' + P.nomMax + ' lettres maximum)' : '') + '. Pas de photo sur ce produit. Nous vous envoyons le rendu sur WhatsApp avant la fabrication.' : P.sansNom ? 'Seulement votre photo, pas de prénom. Envoyez une photo nette sur WhatsApp : nous faisons la conception, nous vous l’envoyons pour validation, et nous lançons l’impression dès votre accord.' : P.champ ? 'Pas de prénom : seulement votre photo. Choisissez la marque, écrivez le modèle exact de votre téléphone, puis envoyez sur WhatsApp la photo à mettre dessus. Nous vous montrons le rendu avant la fabrication.' : PERSO_TXT);
@@ -1527,8 +1536,8 @@ window.ENTREPRISE = {
       s.value = String(O.opt != null && O.opt >= 0 && O.opt < p.option.valeurs.length ? O.opt : -1);
     }
     var PAY = {
-      conakry: [['cash', 'Espèces à la livraison', 'Vous payez au livreur quand vous recevez votre création.'], ['om-liv', 'Orange Money à la livraison', 'Vous payez par Orange Money devant le livreur.'], ['om-now', 'Payer maintenant par Orange Money', 'Votre commande passe en priorité.']],
-      interieur: [['om-depot', 'Dépôt Orange Money quand le colis est prêt', 'Nous vous envoyons la photo du colis prêt, puis vous faites le dépôt.'], ['om-now', 'Payer maintenant par Orange Money', 'Votre commande passe en priorité.']]
+      conakry: [['cash', 'Espèces à la livraison', 'Vous payez au livreur quand vous recevez votre création.'], ['om-liv', 'Orange Money à la livraison', 'Vous payez par Orange Money devant le livreur.']],
+      interieur: [['om-depot', 'Dépôt Orange Money quand le colis est prêt', 'Nous vous envoyons la photo du colis prêt, puis vous faites le dépôt.']]
     };
     function drawPay() {
       var z = zone(), cur = pay();
