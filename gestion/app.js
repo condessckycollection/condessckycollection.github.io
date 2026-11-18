@@ -448,22 +448,30 @@ function vLivraisons() {
 var filtreCmd = 'encours', rechCmd = '';
 function vCommandes() {
   var fs = [['encours', 'En cours'], ['nouvelle', 'Nouvelles'], ['confirmee', 'Confirmées'], ['fabrication', 'Fabrication'], ['prete', 'Prêtes'], ['livraison', 'Livraison'], ['livree', 'Livrées'], ['devis', 'Devis'], ['annulee', 'Annulées'], ['toutes', 'Toutes']];
+  // Nombre de commandes par étape : on cache les étapes vides (sauf « En cours » et « Toutes »)
+  var nb = {}; fs.forEach(function (f) { nb[f[0]] = cmdsFiltre(f[0], '').length; });
+  if (fs.every(function (f) { return f[0] !== filtreCmd; }) || (!nb[filtreCmd] && ['encours', 'toutes'].indexOf(filtreCmd) < 0)) filtreCmd = 'encours';
   var body = '<input id="r" type="search" placeholder="Chercher un nom, un numéro…" value="' + esc(rechCmd) + '">' +
-    '<div class="chips">' + fs.map(function (f) { return '<button data-f="' + f[0] + '" class="' + (filtreCmd === f[0] ? 'on' : '') + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="chips" id="fchips">' + fs.filter(function (f) { return nb[f[0]] || ['encours', 'toutes'].indexOf(f[0]) >= 0; }).map(function (f) { return '<button data-f="' + f[0] + '" class="' + (filtreCmd === f[0] ? 'on' : '') + '">' + f[1] + ' <b style="opacity:.75">' + nb[f[0]] + '</b></button>'; }).join('') + '</div>' +
     '<section class="card" id="lst">' + listeCmdHTML() + '</section>';
   render(page({ title: 'Commandes', body: body, nav: 'cmd' }));
+  var fc = q('#fchips'); if (fc) { fc.scrollLeft = S.chipsX || 0; var on = fc.querySelector('.on'); if (on && (on.offsetLeft < fc.scrollLeft || on.offsetLeft + on.offsetWidth > fc.scrollLeft + fc.clientWidth)) fc.scrollLeft = on.offsetLeft - 12; fc.onscroll = function () { S.chipsX = fc.scrollLeft; }; }
   q('#r').oninput = function (e) { rechCmd = e.target.value; q('#lst').innerHTML = listeCmdHTML(); };
-  qa('[data-f]').forEach(function (b) { b.onclick = function () { filtreCmd = b.dataset.f; vCommandes(); }; });
+  qa('[data-f]').forEach(function (b) { b.onclick = function () { filtreCmd = b.dataset.f; S.chipsX = fc ? fc.scrollLeft : 0; qa('[data-f]').forEach(function (x) { x.className = x === b ? 'on' : ''; }); q('#lst').innerHTML = listeCmdHTML(); }; });
+}
+var ORDRE = { nouvelle: 0, confirmee: 1, fabrication: 2, prete: 3, livraison: 4, livree: 5, annulee: 6 };
+function cmdsFiltre(f, rech) {
+  return S.data.commandes.filter(function (c) {
+    if (f === 'devis') { if (!isDevis(c)) return false; }
+    else { if (isDevis(c) && f !== 'toutes') return false;
+      if (f === 'encours' && ['livree', 'annulee'].indexOf(c.statut) >= 0) return false;
+      if (['encours', 'toutes'].indexOf(f) < 0 && c.statut !== f) return false; }
+    if (rech) { var h = (c.client_nom + ' ' + c.client_tel + ' ' + c.numero + ' ' + title(c)).toLowerCase(); if (h.indexOf(rech.toLowerCase()) < 0) return false; }
+    return true;
+  }).sort(function (a, b) { return ((ORDRE[a.statut] || 0) - (ORDRE[b.statut] || 0)) || String(b.created_at).localeCompare(String(a.created_at)); });
 }
 function listeCmdHTML() {
-  var list = S.data.commandes.filter(function (c) {
-    if (filtreCmd === 'devis') { if (!isDevis(c)) return false; }
-    else { if (isDevis(c) && filtreCmd !== 'toutes') return false;
-      if (filtreCmd === 'encours' && ['livree', 'annulee'].indexOf(c.statut) >= 0) return false;
-      if (['encours', 'toutes'].indexOf(filtreCmd) < 0 && c.statut !== filtreCmd) return false; }
-    if (rechCmd) { var h = (c.client_nom + ' ' + c.client_tel + ' ' + c.numero + ' ' + title(c)).toLowerCase(); if (h.indexOf(rechCmd.toLowerCase()) < 0) return false; }
-    return true;
-  });
+  var list = cmdsFiltre(filtreCmd, rechCmd);
   return (list.length ? list.map(function (c) { return '<a class="row" href="#/commande/' + c.id + '"><div class="grow"><span class="t">' + esc(title(c)) + '</span><span class="mut">' + esc(c.client_nom) + ' · ' + dshort(c.created_at) + ' · ' + (n(c.total) ? fmt(c.total) : 'prix à fixer') + (resteFor(c) ? ' · reste ' + fmtn(resteFor(c)) : '') + '</span></div>' + chip(c) + '</a>'; }).join('') : '<div class="empty">Aucune commande ici.</div>');
 }
 
@@ -475,7 +483,8 @@ function vCommande(id) {
   var next = (!dv && idx >= 0 && idx < 5) ? STATUTS[idx + 1] : null;
   var tel = c.client_tel; var ph = c.photos || [];
   var justPaid = S.justPaid === c.id; S.justPaid = null; var justSt = S.justSt === c.id; S.justSt = null;
-  var body = (justSt && !tel && !isDevis(c) ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Pour envoyer le lien de suivi au client, ajoute son numéro WhatsApp (celui qui t’a écrit) :</p><form id="ftel" style="gap:8px">' + (c.client_nom === 'Client du site' ? '<input name="nom" placeholder="Nom du client (facultatif)">' : '') + '<input name="tel" type="tel" inputmode="tel" placeholder="6XX XX XX XX" required><button class="btn wa" type="submit">Enregistrer et prévenir le client</button></form></section>' : '') +
+  var prenomArt = ((c.articles || []).map(function (a) { return a.perso; }).filter(function (x) { return x && !/iphone|samsung|tecno|galaxy|pro max|\d/i.test(x); })[0]) || '';
+  var body = (!tel && !isDevis(c) && c.statut !== 'nouvelle' ? '<section class="card" style="border:2px solid #1FAF55"><h2>' + (justSt ? '✓ ' + esc(STL[c.statut]) : '📱 Numéro du client') + '</h2><p class="mut" style="margin:0 0 10px">Ajoute le nom et le numéro WhatsApp du client (celui qui t’a écrit) : ils restent dans la commande et dans sa fiche client.</p><form id="ftel" style="gap:8px">' + (c.client_nom === 'Client du site' ? '<input name="nom" placeholder="Nom du client" value="' + esc(prenomArt) + '">' : '') + '<input name="tel" type="tel" inputmode="tel" placeholder="6XX XX XX XX" required><button class="btn wa" type="submit">Enregistrer et prévenir le client</button></form></section>' : '') +
     (justSt && tel ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ ' + esc(STL[c.statut]) + '</h2><p class="mut" style="margin:0 0 10px">Préviens le client : il reçoit le message avec le lien pour suivre sa commande.</p><a class="btn wa" target="_blank" rel="noopener" href="' + waLink(tel, msgStatut(c, c.statut)) + '">Prévenir ' + esc(first(c.client_nom)) + ' sur WhatsApp</a></section>' : '') +
     (c.statut === 'nouvelle' && !dv && !justSt ? '<section class="card" style="border:2px solid var(--or, #F29A00)"><h2>Nouvelle commande</h2><p class="mut" style="margin:0 0 10px">Vérifie la commande puis confirme-la : le client pourra suivre chaque étape.</p><button class="btn navy" id="confirm">✓ Confirmer la commande</button></section>' : '') +
     (justPaid ? '<section class="card" style="border:2px solid #1FAF55"><h2>✓ Paiement enregistré</h2><p class="mut" style="margin:0 0 10px">Donne son reçu au client :</p><div class="grid2"><button class="btn sm or" id="recu2" style="width:100%">🧾 Reçu en image</button>' + (tel ? '<a class="btn sm wa" style="width:100%" target="_blank" rel="noopener" href="' + waLink(tel, recuTexte(c)) + '">Reçu par WhatsApp</a>' : '') + '</div></section>' : '') +
@@ -946,7 +955,7 @@ function vMenu() {
     (S.mode === 'sb' && isPatron() ? '<button class="btn sm danger" id="outall" style="width:100%;margin-top:8px">Téléphone perdu : déconnecter tous les téléphones</button>' : '') + '</section>' +
     '<section class="card"><h2>Installer sur le téléphone</h2><p class="mut" style="margin:0">Android (Chrome) : menu ⋮ → « Ajouter à l’écran d’accueil ». iPhone (Safari) : bouton Partager → « Sur l’écran d’accueil ».</p>' + (deferredInstall ? '<button class="btn navy" id="inst" style="margin-top:10px">Installer l’application</button>' : '') + '</section>' +
     '<button class="btn" id="sync">↻ Recharger les données</button><button class="btn danger" id="out">Se déconnecter</button>' +
-    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.8</p>';
+    '<p class="mut" style="text-align:center">' + (S.user ? esc(S.user.email) : '') + ' · ' + ({ patron: 'Patron', vendeur: 'Vendeur', livreur: 'Livreur' })[S.role] + ' · ' + (S.mode === 'sb' ? 'données en ligne' : 'mode essai') + ' · v2.9</p>';
   render(page({ title: 'Menu', body: body, nav: 'menu' }));
   if (q('#inst')) q('#inst').onclick = function () { deferredInstall.prompt(); };
   if (q('#alertes')) q('#alertes').onclick = function () { bip(); Notification.requestPermission().then(function (r) { toast(r === 'granted' ? 'Alertes activées ✓' : 'Alertes refusées : autorise les notifications dans les réglages du téléphone'); vMenu(); }); };
